@@ -1,0 +1,145 @@
+{
+  "projectType": "saas",
+  "projectName": "Salud Health",
+  "projectDescription": "Privacy-preserving medical records management system built on Aleo blockchain",
+  "theme": "almond",
+  "primaryColor": "#847c75",
+  "lightColor": "#323130",
+  "darkColor": "#e8e2d6",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/medical-records",
+              "features/access-sharing",
+              "features/qr-code-sharing",
+              "features/privacy-security"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/patient-guide",
+              "guides/doctor-guide",
+              "guides/wallet-setup"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/data-flow",
+              "architecture/encryption"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Smart Contract",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "contract/introduction",
+              "contract/architecture"
+            ]
+          },
+          {
+            "group": "Data Structures",
+            "pages": [
+              "contract/medical-record",
+              "contract/access-grant",
+              "contract/record-types"
+            ]
+          },
+          {
+            "group": "Functions",
+            "pages": [
+              "contract/create-record",
+              "contract/grant-access",
+              "contract/verify-access",
+              "contract/revoke-access"
+            ]
+          },
+          {
+            "group": "Integration",
+            "pages": [
+              "contract/client-integration",
+              "contract/encryption-guide",
+              "contract/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Security",
+            "pages": [
+              "security/overview",
+              "security/privacy-model",
+              "security/best-practices"
+            ]
+          },
+          {
+            "group": "Help",
+            "pages": [
+              "help/troubleshooting",
+              "help/faq",
+              "help/support"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/contributing",
+              "development/local-setup",
+              "development/testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Privacy-first medical records on Aleo blockchain",
+    "End-to-end encryption for patient data",
+    "Time-limited access sharing via QR codes",
+    "Temporary doctor access tokens (1 hour to 7 days)",
+    "Zero-knowledge proof verification",
+    "Patient-controlled access management",
+    "Multiple record types (lab results, prescriptions, imaging)",
+    "Automatic access expiration enforcement",
+    "Manual access revocation",
+    "HIPAA-grade data protection"
+  ],
+  "publicApiSurface": [
+    "create_record(data_part1-12, record_type, data_hash, nonce, make_discoverable)",
+    "grant_access(medical_record, doctor, duration_blocks, nonce)",
+    "verify_access(access_token, doctor, record_id)",
+    "revoke_access(access_token)",
+    "get_access_info(access_token)",
+    "compute_record_id(patient, data_hash, nonce)",
+    "compute_access_token(record_id, doctor, patient, nonce)",
+    "POST /api/wallet/connect",
+    "POST /api/wallet/generate",
+    "GET /api/wallet/balance/:sessionId",
+    "POST /api/records/create",
+    "GET /api/records/fetch/:sessionId",
+    "POST /api/access/grant",
+    "GET /api/health"
+  ]
+}
