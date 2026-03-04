@@ -1,0 +1,366 @@
+---
+title: 'Encryption Guide'
+description: 'Client-side encryption implementation for medical data'
+---
+
+## Overview
+
+Salud Health implements client-side encryption to protect medical data before storing it on the blockchain. This ensures that sensitive health information remains private and only accessible to authorized parties.
+
+<Warning>
+The encryption utilities shown here are simplified for demonstration. Production implementations should use proper Aleo encryption or ECIES (Elliptic Curve Integrated Encryption Scheme).
+</Warning>
+
+## Privacy Model
+
+Understanding how data is protected in Salud Health:
+
+| Data Type | Visibility | Encryption |
+|-----------|------------|------------|
+| Medical Records | Private (record) | Client-side encrypted, only patient can decrypt |
+| Access Grants | Public (mapping) | Not encrypted, contains access permissions |
+| Access Tokens | Semi-public | Shared via QR code, cryptographically generated |
+
+## Encryption Utilities
+
+### Encrypt with Public Key
+
+Encrypt medical data using the recipient's public key:
+
+```typescript
+export function encryptWithPublicKey(
+  data: string, 
+  publicKey: string
+): string {
+  // For now, we'll use base64 encoding as a placeholder
+  // In production, implement proper public key encryption
+  const combined = `${data}:${publicKey}`;
+  return btoa(combined);
+}
+```
+
+<Info>
+**Production Implementation**: Replace the base64 encoding with proper ECIES or Aleo's native encryption using the recipient's public key.
+</Info>
+
+### Decrypt with Private Key
+
+Decrypt medical data using the patient's private key:
+
+```typescript
+export function decryptWithPrivateKey(
+  encryptedData: string, 
+  privateKey: string
+): string | null {
+  try {
+    // For now, simple base64 decoding
+    // In production, implement proper private key decryption
+    const decoded = atob(encryptedData);
+    const [data] = decoded.split(':');
+    return data;
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    return null;
+  }
+}
+```
+
+### Generate View Key
+
+Create a view key for record access:
+
+```typescript
+export function generateViewKey(address: string): string {
+  // Simplified view key generation
+  // In production, use proper Aleo view key derivation
+  return `viewkey_${address.substring(0, 20)}_${Date.now()}`;
+}
+```
+
+<Note>
+**Aleo View Keys**: In production, derive view keys from the Aleo account using the SDK's native key derivation functions.
+</Note>
+
+### Derive Public Key
+
+Extract or derive public key from an Aleo address:
+
+```typescript
+export function derivePublicKey(address: string): string {
+  // Simplified - just return a portion of the address
+  // In production, properly derive from Aleo account
+  return address;
+}
+```
+
+## Integration Workflow
+
+### Patient Creates Record
+
+Encrypt medical data before storing on-chain:
+
+```typescript
+import { 
+  encryptWithPublicKey, 
+  derivePublicKey 
+} from '@/lib/crypto-utils';
+import { 
+  prepareCreateRecordInputs, 
+  createRecordData 
+} from '@/lib/aleo-utils';
+
+// 1. Prepare medical data
+const title = 'Annual Checkup';
+const description = 'Blood pressure: 120/80, Weight: 165 lbs';
+const dataStr = createRecordData(title, description);
+
+// 2. Encrypt with patient's public key
+const patientPublicKey = derivePublicKey(patientAddress);
+const encryptedData = encryptWithPublicKey(dataStr, patientPublicKey);
+
+// 3. Prepare inputs for blockchain
+const inputs = prepareCreateRecordInputs(
+  title,
+  description,
+  RecordType.GeneralHealth,
+  true
+);
+
+// 4. Store on blockchain
+const txId = await executeTransaction(
+  'salud_health_records.aleo',
+  'create_record',
+  inputsToArray(inputs)
+);
+```
+
+### Doctor Accesses Record
+
+Verify access and decrypt medical data:
+
+```typescript
+import { decryptWithPrivateKey } from '@/lib/crypto-utils';
+
+// 1. Scan QR code
+const { token, recordId } = parseQRCode(scannedData);
+
+// 2. Verify access on-chain
+try {
+  await executeTransaction(
+    'salud_health_records.aleo',
+    'verify_access',
+    [token, doctorAddress, recordId]
+  );
+  
+  // 3. Fetch encrypted record
+  const encryptedRecord = await fetchRecord(recordId);
+  
+  // 4. Decrypt with shared view key
+  const viewKey = await getSharedViewKey(token);
+  const decryptedData = decryptWithPrivateKey(
+    encryptedRecord.data,
+    viewKey
+  );
+  
+  // 5. Display medical information
+  const { t: title, d: description } = JSON.parse(decryptedData);
+  displayRecord({ title, description });
+  
+} catch (error) {
+  console.error('Access verification failed:', error);
+}
+```
+
+## Key Management
+
+### Patient Keys
+
+```typescript
+interface PatientKeys {
+  address: string;      // Aleo address
+  publicKey: string;    // Public key for encryption
+  privateKey: string;   // Private key (NEVER share)
+  viewKey: string;      // View key for record access
+}
+
+// Derive all keys from Aleo account
+const patientKeys: PatientKeys = {
+  address: account.address(),
+  publicKey: account.publicKey(),
+  privateKey: account.privateKey(), // Store securely!
+  viewKey: generateViewKey(account.address()),
+};
+```
+
+<Warning>
+**Security Critical**: Never log, transmit, or store private keys in plain text. Use secure key management solutions like hardware wallets or encrypted storage.
+</Warning>
+
+### View Key Sharing
+
+When granting access to a doctor, the patient shares a view key:
+
+```typescript
+// 1. Generate temporary view key for doctor
+const sharedViewKey = generateViewKey(patientAddress);
+
+// 2. Encrypt view key with doctor's public key
+const doctorPublicKey = derivePublicKey(doctorAddress);
+const encryptedViewKey = encryptWithPublicKey(
+  sharedViewKey, 
+  doctorPublicKey
+);
+
+// 3. Store encrypted view key off-chain (IPFS, database, etc.)
+const viewKeyHash = await storeEncryptedViewKey(
+  encryptedViewKey,
+  accessToken
+);
+
+// 4. Doctor retrieves and decrypts view key
+const retrievedViewKey = await fetchEncryptedViewKey(accessToken);
+const viewKey = decryptWithPrivateKey(
+  retrievedViewKey,
+  doctorPrivateKey
+);
+```
+
+## Production Implementation
+
+### Using Aleo Native Encryption
+
+Replace placeholder functions with Aleo SDK encryption:
+
+```typescript
+import { Account } from '@aleohq/sdk';
+
+export class AleoEncryption {
+  
+  static encrypt(data: string, recipientPublicKey: string): string {
+    // Use Aleo's native encryption
+    const account = new Account();
+    const encrypted = account.encrypt(
+      data,
+      recipientPublicKey
+    );
+    return encrypted;
+  }
+  
+  static decrypt(encryptedData: string, privateKey: string): string {
+    const account = Account.fromPrivateKey(privateKey);
+    const decrypted = account.decrypt(encryptedData);
+    return decrypted;
+  }
+  
+  static deriveViewKey(privateKey: string): string {
+    const account = Account.fromPrivateKey(privateKey);
+    return account.viewKey();
+  }
+}
+```
+
+### Using ECIES
+
+Alternatively, use standard elliptic curve encryption:
+
+```typescript
+import { encrypt, decrypt } from 'eciesjs';
+
+export class ECIESEncryption {
+  
+  static encrypt(data: string, publicKey: Buffer): Buffer {
+    return encrypt(publicKey, Buffer.from(data));
+  }
+  
+  static decrypt(encryptedData: Buffer, privateKey: Buffer): string {
+    const decrypted = decrypt(privateKey, encryptedData);
+    return decrypted.toString();
+  }
+}
+```
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Client-Side Only" icon="laptop">
+    Always encrypt/decrypt on the client. Never send unencrypted medical data to servers.
+  </Card>
+  <Card title="Key Storage" icon="key">
+    Use hardware wallets or secure enclaves for private key storage.
+  </Card>
+  <Card title="View Key Rotation" icon="rotate">
+    Generate new view keys for each access grant to limit exposure.
+  </Card>
+  <Card title="Audit Trail" icon="list">
+    Log all encryption/decryption events for compliance.
+  </Card>
+</CardGroup>
+
+## Data Integrity
+
+Verify data hasn't been tampered with:
+
+```typescript
+import { hashData } from '@/lib/aleo-utils';
+
+// 1. Hash data before encryption
+const dataHash = hashData(medicalData);
+
+// 2. Store hash on-chain
+const inputs = prepareCreateRecordInputs(
+  title,
+  description,
+  recordType,
+  true
+);
+// inputs.data_hash is already set by prepareCreateRecordInputs
+
+// 3. Verify hash after decryption
+const decryptedData = decryptWithPrivateKey(encryptedData, privateKey);
+const computedHash = hashData(decryptedData);
+
+if (computedHash !== storedHash) {
+  throw new Error('Data integrity check failed');
+}
+```
+
+## Testing Encryption
+
+Verify encryption/decryption works correctly:
+
+```typescript
+import { expect } from 'chai';
+import { encryptWithPublicKey, decryptWithPrivateKey } from '@/lib/crypto-utils';
+
+describe('Encryption', () => {
+  it('should encrypt and decrypt data', () => {
+    const data = 'Blood pressure: 120/80';
+    const publicKey = 'aleo1...';
+    const privateKey = 'APrivateKey1...';
+    
+    const encrypted = encryptWithPublicKey(data, publicKey);
+    const decrypted = decryptWithPrivateKey(encrypted, privateKey);
+    
+    expect(decrypted).to.equal(data);
+  });
+  
+  it('should fail with wrong private key', () => {
+    const data = 'Blood pressure: 120/80';
+    const encrypted = encryptWithPublicKey(data, publicKey1);
+    const decrypted = decryptWithPrivateKey(encrypted, wrongPrivateKey);
+    
+    expect(decrypted).to.be.null;
+  });
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Client Integration" icon="code" href="/contract/client-integration">
+    Integrate encrypted records into your application
+  </Card>
+  <Card title="Testing" icon="flask" href="/contract/testing">
+    Test your encryption implementation
+  </Card>
+</CardGroup>

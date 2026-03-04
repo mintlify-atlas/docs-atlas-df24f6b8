@@ -1,0 +1,413 @@
+---
+title: 'Contributing Guide'
+description: 'Learn how to contribute to the Salud Health Records project'
+icon: 'code-pull-request'
+---
+
+## Welcome Contributors
+
+Thank you for your interest in contributing to Salud! This privacy-preserving medical records system is built on Aleo blockchain and welcomes contributions from developers passionate about healthcare privacy.
+
+## Ways to Contribute
+
+### Code Contributions
+
+- **Frontend Development**: React/TypeScript UI improvements
+- **Backend Development**: Node.js API enhancements
+- **Smart Contract**: Leo programming language improvements
+- **Documentation**: Help improve our docs
+- **Testing**: Write unit, integration, or E2E tests
+
+### Non-Code Contributions
+
+- Report bugs and issues
+- Suggest new features
+- Improve user experience
+- Join community discussions
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork the Repository">
+    Create your own fork of the Salud repository on GitHub.
+    
+    ```bash
+    # Clone your fork
+    git clone <your-fork-url>
+    cd Salud
+    ```
+  </Step>
+
+  <Step title="Create a Feature Branch">
+    Always create a new branch for your work.
+    
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+    
+    **Branch naming conventions:**
+    - `feature/` - New features
+    - `fix/` - Bug fixes
+    - `docs/` - Documentation updates
+    - `refactor/` - Code refactoring
+    - `test/` - Test additions or updates
+  </Step>
+
+  <Step title="Set Up Development Environment">
+    Follow the [Local Setup](/development/local-setup) guide to configure your environment.
+  </Step>
+
+  <Step title="Make Your Changes">
+    - Write clean, readable code
+    - Follow existing code style
+    - Add comments for complex logic
+    - Update documentation as needed
+  </Step>
+
+  <Step title="Test Your Changes">
+    Run tests to ensure nothing breaks. See [Testing](/development/testing) for details.
+    
+    ```bash
+    # Frontend tests
+    cd frontend
+    npm run lint
+    npm run build
+    
+    # Backend tests
+    cd backend
+    npm start  # Verify it runs
+    
+    # Contract tests
+    cd salud_health_records
+    leo test
+    ```
+  </Step>
+
+  <Step title="Commit Your Changes">
+    Write clear, descriptive commit messages.
+    
+    ```bash
+    git add .
+    git commit -m "Add feature: brief description"
+    ```
+    
+    **Good commit messages:**
+    - `Add QR code scanning timeout feature`
+    - `Fix: Wallet connection error on Safari`
+    - `Refactor: Simplify encryption service`
+    - `Docs: Update API endpoint documentation`
+  </Step>
+
+  <Step title="Push and Create Pull Request">
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+    
+    Then create a Pull Request on GitHub with:
+    - Clear title describing the change
+    - Detailed description of what and why
+    - Screenshots (for UI changes)
+    - Test results
+    - Reference any related issues
+  </Step>
+</Steps>
+
+## Code Style Guidelines
+
+### TypeScript/JavaScript (Frontend & Backend)
+
+```typescript
+// ✅ Good: Clear naming, proper types
+interface MedicalRecord {
+  recordId: string;
+  encryptedData: string;
+  createdAt: number;
+}
+
+const createRecord = async (data: string): Promise<MedicalRecord> => {
+  // Clear, concise logic
+};
+
+// ❌ Avoid: Unclear names, missing types
+const cr = async (d: any) => {
+  // ...
+};
+```
+
+**Guidelines:**
+- Use TypeScript types for all functions
+- Prefer `const` over `let`
+- Use async/await over promise chains
+- Add JSDoc comments for complex functions
+- Keep functions small and focused
+
+### Leo (Smart Contracts)
+
+```leo
+// ✅ Good: Clear transitions, proper validation
+transition create_record(
+    data_part1: field,
+    data_part2: field,
+    record_type: u8
+) -> MedicalRecord {
+    // Validate inputs
+    assert(record_type >= 1u8 && record_type <= 10u8);
+    
+    // Implementation
+}
+
+// ❌ Avoid: Missing validation, unclear logic
+transition cr(d1: field, d2: field, t: u8) -> MedicalRecord {
+    // Missing validation
+}
+```
+
+**Guidelines:**
+- Validate all inputs
+- Use descriptive transition names
+- Add comments for complex cryptographic logic
+- Follow Aleo best practices
+
+### React Components
+
+```tsx
+// ✅ Good: Proper typing, clear structure
+interface RecordCardProps {
+  record: MedicalRecord;
+  onShare: (id: string) => void;
+}
+
+export const RecordCard: React.FC<RecordCardProps> = ({ record, onShare }) => {
+  return (
+    <div className="record-card">
+      {/* Component content */}
+    </div>
+  );
+};
+
+// ❌ Avoid: Any types, unclear props
+export const RecordCard = (props: any) => {
+  return <div>{/* ... */}</div>;
+};
+```
+
+**Guidelines:**
+- Define prop interfaces
+- Use functional components
+- Extract reusable logic to hooks
+- Keep components focused on presentation
+
+## Project-Specific Guidelines
+
+### Frontend Development
+
+**File Organization:**
+```
+frontend/src/
+├── components/     # Reusable UI components
+├── pages/          # Route-level components
+├── hooks/          # Custom React hooks
+├── lib/            # Utilities and API clients
+├── store/          # Zustand state management
+└── types/          # TypeScript type definitions
+```
+
+**State Management:**
+- Use Zustand for global state
+- Use React hooks for local state
+- Keep state as close to usage as possible
+
+**API Calls:**
+- Use the `api.ts` client
+- Handle errors gracefully
+- Show loading states
+
+### Backend Development
+
+**API Endpoints:**
+- Follow REST conventions
+- Return consistent response formats
+- Include proper error codes
+- Log important operations
+
+**Error Handling:**
+```javascript
+// ✅ Good: Clear error responses
+app.post('/api/records/create', async (req, res) => {
+  try {
+    const result = await createRecord(req.body);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+```
+
+### Smart Contract Development
+
+**Security First:**
+- Always validate inputs
+- Check ownership before state changes
+- Use block height for time-based logic
+- Test edge cases thoroughly
+
+**Gas Optimization:**
+- Minimize on-chain storage
+- Use efficient data structures
+- Batch operations when possible
+
+## Testing Requirements
+
+### Required Tests for Pull Requests
+
+**Frontend:**
+- Must pass ESLint: `npm run lint`
+- Must build successfully: `npm run build`
+- Test new components manually
+
+**Backend:**
+- Must start without errors
+- Test new endpoints with curl/Postman
+- Verify Aleo SDK integration
+
+**Smart Contracts:**
+- All Leo tests must pass: `leo test`
+- Add tests for new transitions
+- Test security edge cases
+
+### Writing Tests
+
+**Leo Tests:**
+```leo
+// tests/test_salud_health_records.leo
+@test
+function test_create_record() {
+    // Test record creation
+    let record: MedicalRecord = create_record(
+        1field, 2field, 3field, 4field,
+        1u8, 100field, 42field, false
+    );
+    
+    assert_eq(record.record_type, 1u8);
+}
+```
+
+## Pull Request Guidelines
+
+### PR Title Format
+
+```
+Add: QR code timeout feature
+Fix: Wallet connection on Safari
+Update: API documentation
+Refactor: Encryption service
+```
+
+### PR Description Template
+
+```markdown
+## What
+Brief description of changes
+
+## Why
+Why this change is needed
+
+## How
+How it was implemented
+
+## Testing
+- [ ] Tested locally
+- [ ] All tests pass
+- [ ] Works on mobile
+- [ ] Works on desktop
+
+## Screenshots
+(If applicable)
+
+## Related Issues
+Closes #123
+```
+
+### Review Process
+
+1. **Automatic Checks**: Linting, build verification
+2. **Code Review**: Maintainer reviews code quality
+3. **Testing**: Verify functionality works
+4. **Approval**: At least one maintainer approval required
+5. **Merge**: Squash and merge to main branch
+
+## Issue Reporting
+
+### Bug Reports
+
+When reporting bugs, include:
+
+- **Description**: Clear description of the bug
+- **Steps to Reproduce**: Numbered steps
+- **Expected Behavior**: What should happen
+- **Actual Behavior**: What actually happens
+- **Environment**:
+  - Browser/OS version
+  - Wallet used (Leo, Shield, etc.)
+  - Network (testnet/mainnet)
+- **Screenshots**: If applicable
+- **Console Errors**: Browser console output
+
+### Feature Requests
+
+When suggesting features:
+
+- **Use Case**: Why is this needed?
+- **Proposed Solution**: How should it work?
+- **Alternatives**: Other approaches considered
+- **Impact**: Who benefits from this?
+
+## Code of Conduct
+
+### Our Standards
+
+✅ **Do:**
+- Be respectful and inclusive
+- Provide constructive feedback
+- Focus on the code, not the person
+- Help newcomers learn
+- Credit others' contributions
+
+❌ **Don't:**
+- Use offensive language
+- Make personal attacks
+- Spam issues or PRs
+- Copy code without attribution
+
+### Scope
+
+This applies to all project spaces:
+- GitHub repository
+- Pull requests and issues
+- Community discussions
+- Social media related to the project
+
+## License
+
+By contributing to Salud, you agree that your contributions will be licensed under the [MIT License](LICENSE).
+
+## Questions?
+
+- **Create an issue** for bugs or features
+- **Check existing issues** before creating new ones
+- **Join Aleo Discord** for general questions
+- **Review documentation** at [docs.salud.health](https://docs.salud.health)
+
+## Recognition
+
+All contributors will be:
+- Listed in the GitHub contributors page
+- Credited in release notes for significant contributions
+- Part of building privacy-preserving healthcare technology
+
+---
+
+**Thank you for contributing to Salud!** 🏥❤️

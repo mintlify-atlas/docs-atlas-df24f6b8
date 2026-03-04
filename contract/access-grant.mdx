@@ -1,0 +1,240 @@
+---
+title: "AccessGrant Structure"
+description: "Public struct representing temporary access permissions for healthcare providers"
+---
+
+## Overview
+
+The `AccessGrant` is a public struct that represents a temporary access permission granted by a patient to a healthcare provider. It is stored in the public `access_grants` mapping, allowing doctors to verify their access rights without revealing the actual medical data.
+
+```leo
+struct AccessGrant {
+    patient: address,
+    doctor: address,
+    record_id: field,
+    access_token: field,
+    granted_at: u32,
+    expires_at: u32,
+    is_revoked: bool,
+}
+```
+
+## Fields
+
+<ResponseField name="patient" type="address" required>
+  The address of the patient who granted access. This field identifies who owns the medical record and who has the authority to revoke access.
+</ResponseField>
+
+<ResponseField name="doctor" type="address" required>
+  The address of the healthcare provider who has been granted access. This must be different from the patient address - the contract enforces `assert_neq(patient, doctor)` during grant creation.
+</ResponseField>
+
+<ResponseField name="record_id" type="field" required>
+  The unique identifier of the medical record to which access is granted. This references a specific `MedicalRecord` but does NOT contain the actual medical data.
+</ResponseField>
+
+<ResponseField name="access_token" type="field" required>
+  Cryptographic proof of permission generated as a hash of the record ID, doctor address, patient address, and client-provided nonce using BHP256:
+  
+  ```leo
+  BHP256::hash_to_field(AccessTokenInput {
+      record_id: field,
+      doctor: address,
+      patient: address,
+      nonce: field
+  })
+  ```
+  
+  This token should be encoded in a QR code for the doctor to scan.
+</ResponseField>
+
+<ResponseField name="granted_at" type="u32" required>
+  Block height when access was granted. This is set automatically to `block.height` during the finalize function and provides an immutable timestamp of when the permission was created.
+</ResponseField>
+
+<ResponseField name="expires_at" type="u32" required>
+  Block height when access expires. Calculated as `granted_at + duration_blocks` where duration is clamped to the following bounds:
+  
+  - **Minimum**: 240 blocks (~1 hour)
+  - **Maximum**: 40,320 blocks (~7 days)
+  - **Default**: 5,760 blocks (~24 hours)
+  
+  Access is automatically invalid after this block height.
+</ResponseField>
+
+<ResponseField name="is_revoked" type="bool" required>
+  Manual revocation flag. When set to `true`, access is immediately invalidated even if the expiration block height hasn't been reached. Only the original patient can revoke access.
+</ResponseField>
+
+## Access Duration
+
+Access duration is specified in blocks, where approximately:
+
+- **1 block** = ~15 seconds
+- **4 blocks** = ~1 minute
+- **240 blocks** = ~1 hour (minimum)
+- **5,760 blocks** = ~24 hours (default)
+- **40,320 blocks** = ~7 days (maximum)
+
+```leo
+const MIN_ACCESS_DURATION_BLOCKS: u32 = 240u32;    // ~1 hour
+const DEFAULT_ACCESS_DURATION_BLOCKS: u32 = 5760u32; // ~24 hours
+const MAX_ACCESS_DURATION_BLOCKS: u32 = 40320u32;   // ~7 days
+```
+
+<Note>
+  Block times may vary slightly. These durations are approximate based on Aleo's target of ~15 seconds per block.
+</Note>
+
+## Granting Access
+
+Access grants are created using the `grant_access` transition:
+
+```typescript
+// Generate unique nonce for token
+const nonce = generateSecureRandom();
+
+// Grant access to a doctor
+const [returnedRecord, accessToken, future] = await aleoSDK.execute(
+  'grant_access',
+  [
+    medicalRecord,     // The MedicalRecord to share
+    doctorAddress,     // Healthcare provider's address
+    5760,              // Duration in blocks (24 hours)
+    nonce              // Random nonce for token generation
+  ]
+);
+
+// Generate QR code with the access token
+const qrData = {
+  token: accessToken,
+  recordId: medicalRecord.record_id,
+  patient: patientAddress
+};
+const qrCode = generateQRCode(qrData);
+```
+
+## Verifying Access
+
+Doctors verify their access using the `verify_access` transition:
+
+```typescript
+// Scan QR code from patient
+const { token, recordId } = parseQRCode(scannedData);
+
+// Verify access on-chain
+try {
+  await aleoSDK.execute('verify_access', [
+    token,        // Access token from QR code
+    myAddress,    // Doctor's address
+    recordId      // Record ID from QR code
+  ]);
+  
+  // Access is valid - can proceed to view record
+  console.log('Access verified successfully');
+  
+} catch (error) {
+  // Access denied (expired, revoked, or invalid)
+  console.error('Access verification failed:', error);
+}
+```
+
+## Access Validation Checks
+
+The `verify_access` function performs the following checks:
+
+1. **Token Exists**: Access token must exist in `access_token_valid` mapping
+2. **Doctor Match**: Provided doctor address must match `grant.doctor`
+3. **Record Match**: Provided record ID must match `grant.record_id`
+4. **Not Revoked**: `grant.is_revoked` must be `false`
+5. **Not Expired**: Current `block.height` must be ≤ `grant.expires_at`
+
+If any check fails, the transaction reverts.
+
+## Revoking Access
+
+Patients can manually revoke access before expiration:
+
+```typescript
+// Revoke access immediately
+await aleoSDK.execute('revoke_access', [accessToken]);
+```
+
+Revocation:
+- Sets `is_revoked` to `true` in the AccessGrant
+- Sets `access_token_valid` mapping to `false`
+- Is **irreversible** - the same token cannot be un-revoked
+- Can only be performed by the original patient (`grant.patient`)
+
+## Public Mappings
+
+AccessGrant data is stored in two public mappings:
+
+### access_grants
+```leo
+mapping access_grants: field => AccessGrant;
+```
+Stores the complete AccessGrant struct, keyed by the access_token.
+
+### access_token_valid
+```leo
+mapping access_token_valid: field => bool;
+```
+Provides a cheaper validity check without reading the full struct.
+
+## Security Model
+
+<Warning>
+  **AccessGrant Does NOT Contain Medical Data**: This structure only proves permission to access a record. The actual encrypted medical data remains in the private MedicalRecord owned by the patient.
+</Warning>
+
+<Info>
+  **Token Unpredictability**: Access tokens include a client-provided nonce in their hash, making them cryptographically unpredictable. Doctors cannot guess or pre-compute valid tokens.
+</Info>
+
+<Check>
+  **Automatic Expiration**: Access automatically expires at the specified block height. No manual cleanup is required - the blockchain enforces expiration.
+</Check>
+
+## Integration Example
+
+Complete flow for patient-doctor data sharing:
+
+```typescript
+// PATIENT: Grant access and generate QR code
+const [record, token] = await grantAccess(medicalRecord, doctorAddr, 5760);
+const qr = await generateQR({ token, recordId: record.record_id });
+await displayQR(qr); // Show to doctor
+
+// DOCTOR: Scan QR and verify access
+const { token, recordId } = await scanQR();
+const isValid = await verifyAccess(token, myAddress, recordId);
+
+if (isValid) {
+  // Access granted - request encrypted record from patient
+  // (off-chain data transfer required)
+  const encryptedData = await requestRecordData(recordId);
+  const medicalData = await decrypt(encryptedData);
+}
+
+// PATIENT: Revoke access when consultation is complete
+await revokeAccess(token);
+```
+
+## Related Structures
+
+- [MedicalRecord](/contract/medical-record) - Private record structure containing encrypted health data
+- [Record Types](/contract/record-types) - Medical record categories
+- AccessTokenInput - Helper struct for token generation
+
+## Querying Access Info
+
+Anyone can query access grant details using `get_access_info`:
+
+```typescript
+// Public view of access grant
+await aleoSDK.execute('get_access_info', [accessToken]);
+// Transaction succeeds if token exists, fails otherwise
+```
+
+This allows third-party verification of access permissions without modifying state.

@@ -1,0 +1,553 @@
+---
+title: Wallet Setup Guide
+description: Complete guide to setting up and connecting your Aleo wallet for Salud Health
+icon: wallet
+---
+
+## Overview
+
+To use Salud Health, you need an Aleo wallet to secure your medical records and manage access. This guide covers everything from creating a new wallet to connecting existing wallets like Leo Wallet or Shield Wallet.
+
+## Why Salud Requires a Private Key
+
+### Understanding the Technical Difference
+
+You might wonder why you can't just click "Connect Wallet" like on other dApps. Here's why Salud is different:
+
+<Accordion title="Standard dApp (Browser Wallet Connection)">
+  **How it works:**
+  ```
+  Browser Wallet → Signs transaction → Blockchain
+       ↑
+   (Easy connection)
+  ```
+  
+  **What it does:**
+  - Wallet extension signs transactions
+  - Data sent to blockchain in standard format
+  - Suitable for DeFi, NFTs, and public transactions
+</Accordion>
+
+<Accordion title="Salud Health (Private Key Encryption)">
+  **How it works:**
+  ```
+  Your Data → Encrypt with Private Key → Backend → Blockchain
+                  ↑
+           (Needs private key for encryption)
+  ```
+  
+  **What it does:**
+  - Encrypts medical data **before** leaving your browser
+  - Generates cryptographic proofs for zero-knowledge verification
+  - Creates encrypted access tokens for sharing
+  - Maintains server-side session for blockchain interaction
+</Accordion>
+
+### Why Browser Wallets Don't Work
+
+<Warning>
+  **Technical Limitations**
+  
+  Browser wallets (Leo, Shield, Puzzle) don't expose the private key needed for:
+  1. **Client-side data encryption** of medical records
+  2. **Cryptographic proof generation** for access control
+  3. **View key derivation** for record sharing
+  4. **Server-side session management** with the Aleo blockchain
+</Warning>
+
+### The Privacy Benefit
+
+This design actually provides **stronger security** for medical data:
+
+| Feature | Regular dApp | Salud Health |
+|---------|--------------|-------------|
+| **Connection** | Click "Connect" | Paste private key |
+| **Data Encryption** | ❌ Not encrypted | ✅ Encrypted with your key |
+| **Medical Data Privacy** | ❌ Visible to dApp | ✅ Only you can decrypt |
+| **Server Can Read Data** | ❌ Yes | ✅ No (zero-knowledge) |
+| **Sharing with Doctors** | ❌ Not possible | ✅ Time-limited access tokens |
+| **Security Level** | Standard | **HIPAA-grade encryption** |
+
+<Note>
+  **Bottom Line**
+  
+  Salud requires a private key because it provides **medical-grade privacy** that browser wallets can't offer. Your health data deserves the highest level of protection!
+</Note>
+
+## Getting an Aleo Private Key
+
+You have four options for obtaining an Aleo private key:
+
+### Option 1: Export from Leo Wallet (Recommended)
+
+If you already have **Leo Wallet** installed:
+
+<Steps>
+  <Step title="Open Leo Wallet">
+    Click the Leo Wallet browser extension icon in your browser toolbar.
+  </Step>
+  
+  <Step title="Navigate to Settings">
+    Click on your account name or avatar, then go to **Settings** → **Security & Privacy**.
+  </Step>
+  
+  <Step title="Export Private Key">
+    Click **"Export Private Key"** and enter your wallet password to authenticate.
+  </Step>
+  
+  <Step title="Copy the Key">
+    Your private key will be displayed (starts with `APrivateKey1...`). Copy it to your clipboard.
+    
+    <Warning>
+      This key provides full access to your wallet. Never share it with anyone.
+    </Warning>
+  </Step>
+  
+  <Step title="Paste into Salud">
+    Return to Salud Health and paste the private key into the wallet connect screen.
+  </Step>
+</Steps>
+
+### Option 2: Export from Shield Wallet
+
+If you use **Shield Wallet**:
+
+<Steps>
+  <Step title="Open Shield Wallet">
+    Launch the Shield Wallet browser extension.
+  </Step>
+  
+  <Step title="Access Account Settings">
+    Navigate to **Account Settings** from the main menu.
+  </Step>
+  
+  <Step title="Export Private Key">
+    Select **"Export Private Key"** and authenticate with your password.
+  </Step>
+  
+  <Step title="Copy and Use">
+    Copy the displayed private key (starts with `APrivateKey1...`) and paste it into Salud Health.
+  </Step>
+</Steps>
+
+### Option 3: Generate New Account (Testing)
+
+Don't have a wallet yet? Generate a new account directly in Salud:
+
+<Steps>
+  <Step title="Navigate to Salud Health">
+    Open the Salud Health application in your browser.
+  </Step>
+  
+  <Step title="Click 'Generate New'">
+    On the wallet connect screen, click the **"Generate New"** button.
+  </Step>
+  
+  <Step title="Save Your Private Key">
+    A new Aleo account will be generated with a private key. **Save this key securely** - you'll need it to access your account later.
+    
+    <Warning>
+      If you lose this private key, you lose access to all your medical records permanently. There is no recovery mechanism.
+    </Warning>
+  </Step>
+  
+  <Step title="Import to Wallet (Optional)">
+    You can later import this private key into Leo Wallet or Shield Wallet for easier management.
+  </Step>
+</Steps>
+
+### Option 4: Use Existing Aleo Account
+
+If you already have an Aleo account from:
+- Aleo SDK development
+- Other Aleo dApps
+- Previous Salud sessions
+- Command-line wallet generation
+
+Simply use your existing private key (must start with `APrivateKey1...`).
+
+## Understanding Your Wallet
+
+### Private Key Format
+
+Aleo private keys have a specific format:
+
+```
+APrivateKey1zkp...[53 more characters]...xyz
+```
+
+**Characteristics:**
+- Starts with `APrivateKey1`
+- Total length: 59 characters
+- Contains alphanumeric characters
+- Case-sensitive
+
+<Note>
+  If your key doesn't match this format, it's not a valid Aleo private key.
+</Note>
+
+### What Your Private Key Controls
+
+<Accordion title="🔐 Wallet Ownership">
+  Your private key proves ownership of your Aleo wallet address. It's like the password to your bank account.
+</Accordion>
+
+<Accordion title="📝 Transaction Signing">
+  When creating records or granting access, your private key signs transactions to authorize them on the Aleo blockchain.
+</Accordion>
+
+<Accordion title="🔒 Data Encryption/Decryption">
+  Your private key encrypts medical data before storage and decrypts it when you view records. This is critical for privacy!
+</Accordion>
+
+<Accordion title="🎫 Access Token Generation">
+  When sharing records with doctors, your private key generates cryptographic access tokens that prove viewing rights.
+</Accordion>
+
+### Deriving Your Wallet Address
+
+Your public wallet address is derived from your private key:
+
+```
+Private Key: APrivateKey1zkp...
+       ↓
+Public Address: aleo1abc...xyz (63 characters)
+```
+
+Patients and doctors will see your wallet address (not your private key) when sharing records.
+
+## Connecting to Salud Health
+
+### First-Time Connection
+
+<Steps>
+  <Step title="Navigate to Salud Health">
+    Open `http://localhost:5173` (or your deployed Salud Health URL) in your browser.
+  </Step>
+  
+  <Step title="Enter Private Key">
+    On the wallet connect screen, paste your Aleo private key into the input field.
+  </Step>
+  
+  <Step title="Click Connect">
+    Click the **"Connect"** button to establish your session.
+  </Step>
+  
+  <Step title="Wait for Verification">
+    Salud Health will:
+    - Verify your private key format
+    - Derive your wallet address
+    - Create a server-side session
+    - Fetch your existing records from the Aleo blockchain
+  </Step>
+  
+  <Step title="Access Dashboard">
+    Once connected, you'll be redirected to your dashboard with all your medical records.
+  </Step>
+</Steps>
+
+### Reconnecting
+
+Each time you visit Salud Health, you'll need to reconnect:
+
+1. Your session expires when you close the browser or after a timeout period
+2. No credentials are stored locally for security reasons
+3. Simply paste your private key again to reconnect
+
+<Note>
+  **Why No Persistent Login?**
+  
+  For maximum security, Salud doesn't store your private key. While this means reconnecting each visit, it ensures your key can't be compromised through the application.
+</Note>
+
+## Security Best Practices
+
+### Storing Your Private Key
+
+<Warning>
+  **Never share your private key with anyone!** It provides complete access to your wallet and medical records.
+</Warning>
+
+**Recommended storage methods:**
+
+<Accordion title="Password Manager (Recommended)">
+  Store your private key in a reputable password manager like:
+  - 1Password
+  - Bitwarden
+  - LastPass
+  - Dashlane
+  
+  Use a strong master password and enable 2FA on your password manager.
+</Accordion>
+
+<Accordion title="Hardware Wallet">
+  For production use with sensitive medical data, consider storing your Aleo private key on a hardware wallet like:
+  - Ledger
+  - Trezor
+  
+  Note: You'll still need to export the key to use Salud, but the hardware wallet provides secure storage.
+</Accordion>
+
+<Accordion title="Encrypted File">
+  Save your private key in an encrypted file:
+  - Use built-in OS encryption (FileVault on macOS, BitLocker on Windows)
+  - Store in an encrypted container (VeraCrypt)
+  - Keep backups in separate secure locations
+</Accordion>
+
+<Accordion title="Paper Backup">
+  Write your private key on paper and store it in a secure location:
+  - Safe deposit box
+  - Home safe
+  - Fireproof document storage
+  
+  Use multiple copies in different locations for redundancy.
+</Accordion>
+
+**Avoid these methods:**
+
+❌ Plain text files on your computer
+❌ Email (even drafts)
+❌ Cloud storage without encryption
+❌ Screenshots or photos
+❌ Unencrypted notes apps
+❌ Shared documents or messaging apps
+
+### Using Salud Securely
+
+<Steps>
+  <Step title="Use HTTPS">
+    Always access Salud Health over HTTPS to prevent man-in-the-middle attacks.
+  </Step>
+  
+  <Step title="Verify URL">
+    Check that you're on the legitimate Salud Health domain before entering your private key.
+  </Step>
+  
+  <Step title="Use Private Browsing (Optional)">
+    Consider using incognito/private mode when accessing sensitive medical records to prevent browser history storage.
+  </Step>
+  
+  <Step title="Lock Your Device">
+    Always lock your computer/phone when stepping away during an active Salud session.
+  </Step>
+  
+  <Step title="Use Dedicated Wallet (Recommended)">
+    For maximum privacy, create a separate Aleo wallet specifically for Salud Health rather than reusing wallets from other dApps.
+  </Step>
+</Steps>
+
+### Network Security
+
+<Warning>
+  **Public WiFi Risk**
+  
+  Avoid entering your private key on public WiFi networks. Use:
+  - Cellular data connection
+  - VPN on trusted network
+  - Home/office secure WiFi
+</Warning>
+
+### Session Management
+
+- **Session Timeout**: Your Salud session expires after inactivity
+- **Manual Disconnect**: No explicit disconnect button - sessions are memory-only
+- **Browser Closure**: Closing the browser immediately ends your session
+- **Private Key Handling**: Your key is only kept in browser memory during active sessions
+
+## Using Your Existing Wallet
+
+### Can I Use My Leo/Shield Wallet Balance?
+
+**Yes!** The private key you export from Leo Wallet or Shield Wallet is the **same key** that controls your wallet. This means:
+
+- ✅ Same Aleo wallet address
+- ✅ Same token balance
+- ✅ Same transaction history
+- ✅ Access to the same on-chain records
+
+You're not creating a new wallet - you're using your existing wallet's private key in Salud's interface.
+
+### Managing Multiple Applications
+
+**Think of it like this:**
+- **Leo Wallet** = A secure vault for your private key that lets you sign transactions
+- **Salud Health** = A specialized medical app that needs your private key for encryption
+- **Your Wallet** = The underlying Aleo account controlled by the same private key
+
+It's like using the same bank account on different banking apps.
+
+### Switching Between Wallets
+
+You can use different Aleo wallets in Salud:
+
+1. **Personal Records Wallet**: For your own medical records
+2. **Professional Wallet**: If you're a doctor accessing patient records
+3. **Family Member Wallets**: Managing records for dependents
+
+Simply paste a different private key to switch accounts.
+
+## Troubleshooting
+
+<Accordion title="'Invalid private key' error">
+  **Possible causes:**
+  - Private key doesn't start with `APrivateKey1`
+  - Key is not exactly 59 characters
+  - Extra spaces or line breaks were copied
+  - Wrong format (not an Aleo private key)
+  
+  **Solutions:**
+  - Re-export from your wallet carefully
+  - Check for hidden characters or spaces
+  - Verify the key starts with `APrivateKey1`
+  - Try generating a new key if unsure
+</Accordion>
+
+<Accordion title="Cannot connect to backend">
+  **Possible causes:**
+  - Backend server not running (if self-hosting)
+  - Firewall blocking connection
+  - Incorrect API URL configuration
+  
+  **Solutions:**
+  - Ensure backend is running on port 3001
+  - Check `VITE_API_URL` in frontend `.env`
+  - Verify firewall settings
+  - Check browser console for connection errors
+</Accordion>
+
+<Accordion title="Private key not recognized after copy-paste">
+  **Possible causes:**
+  - Clipboard added extra characters
+  - Key was split across multiple lines
+  - Copy-paste encoding issue
+  
+  **Solutions:**
+  - Type the key manually
+  - Use a text editor to clean up formatting
+  - Copy from wallet extension again
+  - Check for invisible Unicode characters
+</Accordion>
+
+<Accordion title="Lost private key - can I recover my records?">
+  **Unfortunately, no.**
+  
+  Aleo blockchain uses cryptographic encryption where your private key is the **only** way to decrypt your records. There is no password reset or recovery mechanism.
+  
+  **Prevention:**
+  - Store multiple encrypted backups
+  - Use a password manager
+  - Write down paper backups
+  - Test recovery process periodically
+</Accordion>
+
+<Accordion title="Different wallet address than expected">
+  **Possible causes:**
+  - Using a different private key than intended
+  - Multiple accounts in your wallet extension
+  - Exported key from wrong account
+  
+  **Solutions:**
+  - Verify which account is active in Leo/Shield Wallet
+  - Check that the exported key matches the expected address
+  - Derive the public address from your private key to confirm
+</Accordion>
+
+## Advanced Topics
+
+### Demo Mode (Testing)
+
+For testing without spending Aleo credits:
+
+1. Configure backend `.env`:
+   ```env
+   DEMO_MODE=true
+   ```
+
+2. In demo mode:
+   - ✅ All features work normally
+   - ✅ Records stored in localStorage
+   - ✅ No real blockchain transactions
+   - ⚠️ Records won't persist across browsers/devices
+
+### Testnet vs Mainnet
+
+Salud Health currently uses **Aleo Testnet**:
+
+- Free to use (test credits)
+- Perfect for development and testing
+- Records are real but use testnet tokens
+- No real value at stake
+
+**Switching to Mainnet** (when available):
+
+Update `ALEO_API_URL` in backend `.env`:
+```env
+ALEO_API_URL=https://api.explorer.provable.com/v1/mainnet
+```
+
+<Warning>
+  Mainnet transactions cost real Aleo credits. Ensure you have sufficient balance before creating records.
+</Warning>
+
+### Checking Your Balance
+
+To check your Aleo wallet balance:
+
+1. **Via Salud**: Dashboard displays your balance after connection
+2. **Via Leo Wallet**: Check balance in the wallet extension
+3. **Via Aleo Explorer**: Visit `https://explorer.aleo.org` and search your address
+4. **Via API**: GET `/api/wallet/balance/:sessionId` endpoint
+
+### Importing Generated Keys to Leo Wallet
+
+If you generated a new account in Salud and want to manage it via Leo Wallet:
+
+<Steps>
+  <Step title="Open Leo Wallet">
+    Launch the Leo Wallet browser extension.
+  </Step>
+  
+  <Step title="Select 'Import Account'">
+    Click the account menu and choose **"Import Account"**.
+  </Step>
+  
+  <Step title="Enter Private Key">
+    Paste the private key generated by Salud.
+  </Step>
+  
+  <Step title="Set Account Name">
+    Give your account a name (e.g., "Salud Health Records").
+  </Step>
+  
+  <Step title="Confirm Import">
+    Complete the import process. Your Salud-generated account is now managed by Leo Wallet.
+  </Step>
+</Steps>
+
+## Next Steps
+
+Now that your wallet is set up:
+
+<CardGroup cols={2}>
+  <Card title="Patient Guide" icon="user" href="/guides/patient-guide">
+    Learn how to create and manage your medical records
+  </Card>
+  <Card title="Doctor Guide" icon="user-doctor" href="/guides/doctor-guide">
+    Understand how to access shared patient records
+  </Card>
+</CardGroup>
+
+## Security Checklist
+
+Before using Salud Health, ensure:
+
+- [ ] Private key is securely stored (password manager or hardware wallet)
+- [ ] Multiple backups exist in separate secure locations
+- [ ] Using HTTPS connection to Salud Health
+- [ ] Verified the application URL is legitimate
+- [ ] Understand that sessions are temporary and require reconnection
+- [ ] Know that lost private keys cannot be recovered
+- [ ] Using a secure network (not public WiFi)
+- [ ] Device is protected with strong password/biometrics
+- [ ] Antivirus/security software is active and updated

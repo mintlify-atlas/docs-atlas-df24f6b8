@@ -1,0 +1,752 @@
+---
+title: 'Testing Guide'
+description: 'Learn how to run tests and ensure code quality in Salud Health Records'
+icon: 'flask-vial'
+---
+
+## Overview
+
+Salud uses a multi-layered testing approach to ensure reliability and security across the frontend, backend, and smart contracts.
+
+## Testing Philosophy
+
+### Quality Standards
+
+- **Smart Contracts**: Comprehensive test coverage (security-critical)
+- **Backend**: API endpoint validation and error handling
+- **Frontend**: Build verification and linting
+- **Integration**: Manual end-to-end testing
+
+### Test Pyramid
+
+```
+        /\        E2E Tests (Manual)
+       /  \       - User flows
+      /    \      - Cross-browser
+     /      \     
+    /--------\    Integration Tests (Manual/Automated)
+   /          \   - API endpoints
+  /            \  - Contract interactions
+ /              \ 
+/----------------\ Unit Tests (Automated)
+                   - Contract transitions
+                   - Utility functions
+                   - Component rendering
+```
+
+## Smart Contract Testing
+
+The Leo smart contract has the most comprehensive test suite with **17 automated tests**.
+
+### Running Contract Tests
+
+<CodeGroup>
+```bash Run All Tests
+cd salud_health_records
+leo test
+
+# Expected output:
+# Test test_create_record ... ok
+# Test test_record_types ... ok
+# ... (17 tests)
+# All tests passed ✓
+```
+
+```bash Run Specific Test
+leo test --filter test_create_record
+
+# Runs only tests matching the filter
+```
+
+```bash Verbose Output
+leo test --verbose
+
+# Shows detailed execution logs
+```
+</CodeGroup>
+
+### Test Coverage
+
+The contract test suite (`tests/test_salud_health_records.leo`) covers:
+
+#### Record Creation Tests
+
+<AccordionGroup>
+  <Accordion title="test_create_record">
+    Verifies basic record creation with valid inputs.
+    
+    **Tests:**
+    - Record is created successfully
+    - Owner is set to caller
+    - Data fields are stored correctly
+    - Record type is valid
+  </Accordion>
+
+  <Accordion title="test_record_types">
+    Validates all 10 record type categories.
+    
+    **Record Types Tested:**
+    1. General Health
+    2. Laboratory Results
+    3. Prescriptions
+    4. Imaging/Radiology
+    5. Vaccination Records
+    6. Surgical Records
+    7. Mental Health
+    8. Dental Records
+    9. Vision/Ophthalmology
+    10. Other/Miscellaneous
+  </Accordion>
+
+  <Accordion title="test_invalid_record_type">
+    Ensures invalid record types (0, 11+) are rejected.
+    
+    **Expects:** Assertion failure for out-of-range types
+  </Accordion>
+</AccordionGroup>
+
+#### Record ID Tests
+
+<AccordionGroup>
+  <Accordion title="test_record_id_uniqueness">
+    Verifies that different inputs produce unique record IDs.
+    
+    **Tests:**
+    - Different data → different IDs
+    - Different nonces → different IDs
+    - Different patients → different IDs
+  </Accordion>
+
+  <Accordion title="test_record_id_determinism">
+    Confirms same inputs always produce same ID.
+    
+    **Tests:**
+    - Same patient + data + nonce = same ID
+    - Useful for client-side ID computation
+  </Accordion>
+</AccordionGroup>
+
+#### Access Grant Tests
+
+<AccordionGroup>
+  <Accordion title="test_grant_access">
+    Tests basic access grant creation.
+    
+    **Verifies:**
+    - Access token is generated
+    - Grant is stored in mapping
+    - Patient retains record ownership
+  </Accordion>
+
+  <Accordion title="test_access_token_generation">
+    Validates access token uniqueness.
+    
+    **Tests:**
+    - Different doctors → different tokens
+    - Different nonces → different tokens
+    - Same inputs → same token (deterministic)
+  </Accordion>
+
+  <Accordion title="test_duration_bounds">
+    Checks duration clamping to valid ranges.
+    
+    **Tests:**
+    - Minimum: 240 blocks (~1 hour)
+    - Maximum: 40,320 blocks (~7 days)
+    - Out-of-range values are clamped
+  </Accordion>
+</AccordionGroup>
+
+#### Access Verification Tests
+
+<AccordionGroup>
+  <Accordion title="test_verify_valid_access">
+    Tests successful verification with valid token.
+    
+    **Flow:**
+    1. Create record
+    2. Grant access to doctor
+    3. Verify access succeeds
+  </Accordion>
+
+  <Accordion title="test_verify_invalid_token">
+    Ensures fake tokens are rejected.
+    
+    **Tests:**
+    - Random token → verification fails
+    - Wrong token for record → fails
+  </Accordion>
+
+  <Accordion title="test_verify_wrong_doctor">
+    Prevents access by unauthorized doctors.
+    
+    **Scenario:**
+    - Grant to Doctor A
+    - Doctor B tries to access
+    - Verification fails
+  </Accordion>
+
+  <Accordion title="test_verify_wrong_record">
+    Ensures tokens are record-specific.
+    
+    **Scenario:**
+    - Token for Record A
+    - Used on Record B
+    - Verification fails
+  </Accordion>
+</AccordionGroup>
+
+#### Revocation Tests
+
+<AccordionGroup>
+  <Accordion title="test_revoke_access">
+    Tests immediate access revocation.
+    
+    **Flow:**
+    1. Grant access
+    2. Revoke access
+    3. Verification fails
+    4. Access info shows `is_revoked: true`
+  </Accordion>
+
+  <Accordion title="test_full_flow">
+    End-to-end integration test.
+    
+    **Complete Flow:**
+    1. Patient creates record
+    2. Patient grants access to doctor
+    3. Doctor verifies access (succeeds)
+    4. Patient revokes access
+    5. Doctor verification fails
+  </Accordion>
+</AccordionGroup>
+
+#### Helper Function Tests
+
+<AccordionGroup>
+  <Accordion title="test_compute_record_id">
+    Validates client-side ID computation helper.
+    
+    **Purpose:** Allows frontend to predict record IDs
+  </Accordion>
+
+  <Accordion title="test_get_access_info">
+    Tests public access info retrieval.
+    
+    **Returns:**
+    - Patient address
+    - Doctor address
+    - Record ID
+    - Expiration time
+    - Revocation status
+  </Accordion>
+</AccordionGroup>
+
+### Writing New Contract Tests
+
+Example test structure:
+
+```leo
+// tests/test_salud_health_records.leo
+
+@test
+function test_your_feature() {
+    // Setup: Create test data
+    let patient: address = aleo1...;
+    let doctor: address = aleo1...;
+    
+    // Execute: Call transition
+    let record: MedicalRecord = create_record(
+        1field, 2field, 3field, 4field,
+        1u8,      // record_type
+        100field, // data_hash
+        42field,  // nonce
+        false     // make_discoverable
+    );
+    
+    // Assert: Verify results
+    assert_eq(record.owner, patient);
+    assert_eq(record.record_type, 1u8);
+    assert(record.record_id != 0field);
+}
+```
+
+**Best Practices:**
+- Test one thing per test function
+- Use descriptive function names
+- Add comments explaining what's being tested
+- Test both success and failure cases
+- Verify security constraints
+
+## Backend Testing
+
+The backend uses manual testing and verification.
+
+### Running Backend Tests
+
+<Steps>
+  <Step title="Start the Server">
+    ```bash
+    cd backend
+    npm start
+    ```
+    
+    **Verify:** Server starts without errors on port 3001
+  </Step>
+
+  <Step title="Test Health Endpoint">
+    ```bash
+    curl http://localhost:3001/api/health
+    ```
+    
+    **Expected Response:**
+    ```json
+    {
+      "status": "ok",
+      "message": "Salud Health Records API is running"
+    }
+    ```
+  </Step>
+
+  <Step title="Test Wallet Generation">
+    ```bash
+    curl -X POST http://localhost:3001/api/wallet/generate
+    ```
+    
+    **Expected Response:**
+    ```json
+    {
+      "success": true,
+      "privateKey": "APrivateKey1...",
+      "address": "aleo1...",
+      "sessionId": "uuid-here"
+    }
+    ```
+  </Step>
+
+  <Step title="Test Wallet Connection">
+    ```bash
+    curl -X POST http://localhost:3001/api/wallet/connect \
+      -H "Content-Type: application/json" \
+      -d '{
+        "privateKey": "APrivateKey1zkp..."
+      }'
+    ```
+    
+    **Expected Response:**
+    ```json
+    {
+      "success": true,
+      "address": "aleo1...",
+      "sessionId": "uuid-here"
+    }
+    ```
+  </Step>
+
+  <Step title="Test Record Creation">
+    ```bash
+    curl -X POST http://localhost:3001/api/records/create \
+      -H "Content-Type: application/json" \
+      -d '{
+        "sessionId": "your-session-id",
+        "encryptedData": "encrypted-medical-data",
+        "recordType": 1
+      }'
+    ```
+  </Step>
+</Steps>
+
+### Backend Test Checklist
+
+<Checklist>
+- [ ] Server starts without errors
+- [ ] All endpoints return proper status codes
+- [ ] Error responses include clear messages
+- [ ] CORS headers are set correctly
+- [ ] Environment variables load properly
+- [ ] Aleo SDK initializes correctly
+- [ ] Session management works
+- [ ] Private keys are handled securely
+</Checklist>
+
+### Manual API Testing with Postman
+
+**Collection Setup:**
+
+1. **Base URL**: `http://localhost:3001`
+2. **Headers**: `Content-Type: application/json`
+
+**Test Scenarios:**
+
+<Tabs>
+  <Tab title="Health Check">
+    ```
+    GET /api/health
+    
+    Expected: 200 OK
+    Body: { "status": "ok" }
+    ```
+  </Tab>
+  
+  <Tab title="Generate Wallet">
+    ```
+    POST /api/wallet/generate
+    
+    Expected: 200 OK
+    Body: { "success": true, "privateKey": "...", "address": "..." }
+    
+    Save: sessionId for subsequent requests
+    ```
+  </Tab>
+  
+  <Tab title="Create Record">
+    ```
+    POST /api/records/create
+    Body: {
+      "sessionId": "{{sessionId}}",
+      "encryptedData": "test data",
+      "recordType": 1
+    }
+    
+    Expected: 200 OK or appropriate error
+    ```
+  </Tab>
+</Tabs>
+
+## Frontend Testing
+
+The frontend focuses on build verification and code quality.
+
+### Running Frontend Tests
+
+<CodeGroup>
+```bash Linting
+cd frontend
+npm run lint
+
+# Checks for:
+# - TypeScript errors
+# - ESLint rule violations
+# - React best practices
+# - Unused imports/variables
+```
+
+```bash Type Checking
+cd frontend
+npx tsc --noEmit
+
+# TypeScript compilation check
+# No output = success
+```
+
+```bash Build Verification
+cd frontend
+npm run build
+
+# Creates production build
+# Must complete without errors
+# Output in dist/
+```
+
+```bash Preview Build
+cd frontend
+npm run preview
+
+# Serves production build locally
+# Test at http://localhost:4173
+```
+</CodeGroup>
+
+### Frontend Test Checklist
+
+<Checklist>
+- [ ] `npm run lint` passes without errors
+- [ ] `npm run build` completes successfully
+- [ ] No TypeScript errors in code
+- [ ] No console errors in browser
+- [ ] All routes load correctly
+- [ ] Wallet connection works
+- [ ] QR code generates and scans
+- [ ] Records display properly
+- [ ] Mobile responsive layout works
+</Checklist>
+
+### Manual UI Testing
+
+**Test on Multiple Browsers:**
+
+<Tabs>
+  <Tab title="Chrome/Edge">
+    - Wallet connection
+    - QR code camera access
+    - LocalStorage persistence
+    - Console errors
+  </Tab>
+  
+  <Tab title="Safari">
+    - Wallet adapter compatibility
+    - Camera permissions
+    - Date formatting
+    - Cross-origin issues
+  </Tab>
+  
+  <Tab title="Firefox">
+    - Extension conflicts
+    - Camera access
+    - WebAssembly support
+    - Console warnings
+  </Tab>
+  
+  <Tab title="Mobile Safari">
+    - Touch interactions
+    - QR scanner rotation
+    - Modal overlays
+    - Virtual keyboard layout
+  </Tab>
+  
+  <Tab title="Mobile Chrome">
+    - Responsive layout
+    - Camera access
+    - Back button behavior
+    - PWA features (if enabled)
+  </Tab>
+</Tabs>
+
+## Integration Testing
+
+### End-to-End User Flows
+
+<Steps>
+  <Step title="Patient Creates Record">
+    **Test Flow:**
+    1. Open app at `http://localhost:5173`
+    2. Connect wallet (or generate new)
+    3. Click "New Record" button
+    4. Enter medical data
+    5. Submit record
+    6. Verify success message
+    7. See record in list
+    
+    **Expected Result:** Record appears in dashboard
+  </Step>
+
+  <Step title="Patient Shares Record">
+    **Test Flow:**
+    1. Click "Share" on a record
+    2. Enter doctor address (or use default duration)
+    3. QR code displays
+    4. Verify expiration countdown shows
+    5. Screenshot QR code for doctor test
+    
+    **Expected Result:** Valid QR code generated
+  </Step>
+
+  <Step title="Doctor Scans and Views">
+    **Test Flow:**
+    1. Navigate to `/doctor` route
+    2. Connect doctor wallet
+    3. Click "Scan QR Code"
+    4. Grant camera permission
+    5. Scan patient's QR code
+    6. View decrypted record
+    7. Verify expiration timer
+    
+    **Expected Result:** Record displays with countdown
+  </Step>
+
+  <Step title="Access Expiration">
+    **Test Flow:**
+    1. Create record with 1-hour duration
+    2. Share with doctor
+    3. Wait for expiration (or modify block height in demo)
+    4. Doctor attempts to view
+    5. Verify "Access expired" error
+    
+    **Expected Result:** Access denied after expiration
+  </Step>
+</Steps>
+
+### Cross-Platform Testing
+
+**Device Matrix:**
+
+| Device | OS | Browser | Priority |
+|--------|-----|---------|----------|
+| iPhone 12+ | iOS 15+ | Safari | High |
+| iPhone 12+ | iOS 15+ | Chrome | Medium |
+| Android | 11+ | Chrome | High |
+| Desktop | macOS | Chrome/Safari | High |
+| Desktop | Windows | Chrome/Edge | High |
+| Desktop | Linux | Firefox | Medium |
+
+## Testing Best Practices
+
+### Before Committing
+
+<Steps>
+  <Step title="Run All Checks">
+    ```bash
+    # Frontend
+    cd frontend
+    npm run lint
+    npm run build
+    
+    # Backend
+    cd ../backend
+    npm start  # Verify starts
+    # Ctrl+C to stop
+    
+    # Contract (if changed)
+    cd ../salud_health_records
+    leo test
+    ```
+  </Step>
+
+  <Step title="Manual Testing">
+    - Test the feature you changed
+    - Test related features
+    - Check for console errors
+    - Verify mobile responsive (if UI change)
+  </Step>
+
+  <Step title="Document Changes">
+    - Update documentation if needed
+    - Add comments for complex logic
+    - Update API docs if endpoints changed
+  </Step>
+</Steps>
+
+### Before Pull Request
+
+<Checklist>
+- [ ] All automated tests pass
+- [ ] No lint errors
+- [ ] Build succeeds
+- [ ] Manual testing completed
+- [ ] Console has no errors
+- [ ] Works on Chrome and Safari
+- [ ] Mobile responsive (for UI changes)
+- [ ] Documentation updated
+- [ ] Screenshots added (for UI changes)
+</Checklist>
+
+## Continuous Testing
+
+### During Development
+
+**Frontend (with HMR):**
+```bash
+cd frontend
+npm run dev
+
+# Changes auto-reload
+# Check browser console after each change
+# Verify functionality manually
+```
+
+**Backend (with nodemon):**
+```bash
+cd backend
+npm run dev
+
+# Server auto-restarts on changes
+# Check terminal for errors
+# Re-test endpoints after changes
+```
+
+**Contract (iterative):**
+```bash
+cd salud_health_records
+
+# Make changes to src/main.leo
+leo build
+leo test
+
+# Fix errors, repeat
+```
+
+## Test Data
+
+### Demo Mode Test Data
+
+**Sample Private Keys (Testnet Only):**
+```
+APrivateKey1zkp... (generate new for testing)
+```
+
+**Sample Medical Records:**
+```json
+{
+  "title": "Annual Physical Exam",
+  "data": "Blood pressure: 120/80, Heart rate: 72 bpm, Temperature: 98.6°F",
+  "recordType": 1
+}
+
+{
+  "title": "Lab Results - Cholesterol",
+  "data": "Total: 180 mg/dL, HDL: 55 mg/dL, LDL: 100 mg/dL",
+  "recordType": 2
+}
+```
+
+**Sample Doctor Address (for testing):**
+```
+aleo1... (use generated address from "Generate New")
+```
+
+## Debugging Tests
+
+### Contract Test Failures
+
+```bash
+# Run with verbose output
+leo test --verbose
+
+# Read assertion error messages carefully
+# Check expected vs actual values
+# Verify test setup matches contract logic
+```
+
+### Backend Issues
+
+```javascript
+// Add console logs in server.js
+console.log('Request body:', req.body);
+console.log('Session data:', sessions.get(sessionId));
+
+// Check for:
+// - Missing parameters
+// - Type mismatches
+// - Aleo SDK errors
+```
+
+### Frontend Issues
+
+```typescript
+// Browser DevTools Console
+// Check for:
+// - API call failures (Network tab)
+// - State updates (React DevTools)
+// - LocalStorage data (Application tab)
+// - Console errors/warnings
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Contributing Guide" icon="code-pull-request" href="/development/contributing">
+    Learn how to submit tested contributions
+  </Card>
+  
+  <Card title="Local Setup" icon="laptop-code" href="/development/local-setup">
+    Set up your testing environment
+  </Card>
+  
+  <Card title="Architecture" icon="diagram-project" href="/core-concepts/architecture">
+    Understand what you're testing
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference/overview">
+    Test API endpoints comprehensively
+  </Card>
+</CardGroup>

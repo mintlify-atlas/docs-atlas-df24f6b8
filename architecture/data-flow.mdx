@@ -1,0 +1,627 @@
+---
+title: 'Data Flow Architecture'
+description: 'Detailed data flow diagrams showing how information moves through Salud Health system'
+---
+
+## Overview
+
+This document describes the complete data flow for all major operations in Salud Health, from user interaction to blockchain storage.
+
+## System Data Flow Diagram
+
+```mermaid
+graph LR
+    subgraph "Browser"
+        UI[User Interface]
+        ENC[Encryption Service]
+        CACHE[IndexedDB Cache]
+    end
+    
+    subgraph "Backend API"
+        API[Express Server]
+        SESSION[Session Store]
+        SDK[Aleo SDK]
+    end
+    
+    subgraph "Aleo Blockchain"
+        CONTRACT[Leo Smart Contract]
+        RECORDS[(Private Records)]
+        MAPPINGS[(Public Mappings)]
+    end
+    
+    UI -->|1. User Input| ENC
+    ENC -->|2. Encrypted Data| API
+    API -->|3. Session Check| SESSION
+    API -->|4. Execute Transaction| SDK
+    SDK -->|5. Submit to Chain| CONTRACT
+    CONTRACT -->|6. Store Private| RECORDS
+    CONTRACT -->|7. Update Public| MAPPINGS
+    CONTRACT -->|8. Confirmation| SDK
+    SDK -->|9. Response| API
+    API -->|10. Result| UI
+    UI -->|11. Cache| CACHE
+```
+
+## 1. Wallet Connection Flow
+
+### Patient Connects Wallet
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant F as Frontend
+    participant B as Backend
+    participant A as Aleo SDK
+    
+    U->>F: Enter private key
+    F->>F: Validate format (APrivateKey1...)
+    F->>B: POST /api/wallet/connect
+    Note over B: privateKey in request body
+    B->>A: Account.fromPrivateKey(key)
+    A-->>B: Account object
+    B->>B: Derive address & view key
+    B->>B: Create session (UUID)
+    B->>B: Store in session map
+    Note over B: sessions[sessionId] = account
+    B-->>F: {sessionId, address, viewKey}
+    F->>F: Store sessionId in state
+    F->>F: Store address in localStorage
+    F-->>U: Connected to {address}
+```
+
+**Data Transformation:**
+
+```typescript
+// Input
+privateKey: "APrivateKey1zkp..."
+
+// Backend Processing
+const account = Account.fromPrivateKey(privateKey);
+const sessionId = generateUUID(); // "550e8400-e29b-41d4-a716-446655440000"
+const address = account.address().toString(); // "aleo1..."
+const viewKey = account.viewKey().toString(); // "AViewKey1..."
+
+// Output
+{
+  sessionId: "550e8400-e29b-41d4-a716-446655440000",
+  address: "aleo1gl4a57rcxyjvmzcgjscjqe466ecdr7uk4gdp7sf5pctu6tjvv5qs60lw8y",
+  viewKey: "AViewKey1..."
+}
+```
+
+## 2. Create Medical Record Flow
+
+### Complete Data Pipeline
+
+```mermaid
+graph TD
+    A[User Input: Title + Description] -->|1. Combine| B[JSON String]
+    B -->|2. Encode| C[Bytes: Uint8Array]
+    C -->|3. Split| D[12 Byte Chunks]
+    D -->|4. Convert| E[12 Field Elements]
+    E -->|5. Hash| F[Data Hash]
+    E -->|6. Generate| G[Nonce]
+    E -->|7. Format| H[Transaction Inputs]
+    H -->|8. Send| I[Backend API]
+    I -->|9. Execute| J[Aleo SDK]
+    J -->|10. Submit| K[create_record transition]
+    K -->|11. Hash| L[Record ID]
+    K -->|12. Create| M[MedicalRecord private record]
+    K -->|13. Update| N[Mappings: metadata + count]
+    N -->|14. Confirm| O[Transaction ID]
+    O -->|15. Return| I
+    I -->|16. Response| P[Frontend]
+    P -->|17. Cache| Q[IndexedDB]
+```
+
+### Step-by-Step Data Transformation
+
+#### Step 1: User Input → JSON
+
+```typescript
+// Frontend: src/lib/aleo-utils.ts:124
+function createRecordData(title: string, description: string): string {
+  return JSON.stringify({
+    t: title,
+    d: description
+  });
+}
+
+// Example
+Input:
+  title: "Annual Checkup 2024"
+  description: "Blood pressure: 120/80, Heart rate: 72 bpm, No issues detected"
+
+Output:
+  '{"t":"Annual Checkup 2024","d":"Blood pressure: 120/80, Heart rate: 72 bpm, No issues detected"}'
+```
+
+#### Step 2: String → Field Elements
+
+```typescript
+// Frontend: src/lib/aleo-utils.ts:16
+function stringToFieldElements(data: string): string[] {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(data); // UTF-8 bytes
+  
+  const fields: string[] = [];
+  const BYTES_PER_FIELD = 30; // ~253 bits per field
+  const NUM_FIELD_PARTS = 12; // Total fields (v6 contract)
+  
+  for (let i = 0; i < NUM_FIELD_PARTS; i++) {
+    const start = i * BYTES_PER_FIELD;
+    const end = Math.min(start + BYTES_PER_FIELD, bytes.length);
+    const part = bytes.slice(start, end);
+    fields.push(bytesToField(part)); // Convert to "123456field"
+  }
+  
+  while (fields.length < NUM_FIELD_PARTS) {
+    fields.push('0field'); // Pad remaining
+  }
+  
+  return fields;
+}
+
+// Example Output
+[
+  "123456789012345678901234567890field",  // data_part1
+  "987654321098765432109876543210field",  // data_part2
+  "456789012345678901234567890123field",  // data_part3
+  // ... 9 more parts
+  "0field",  // data_part12 (padding if data < 360 bytes)
+]
+```
+
+#### Step 3: Generate Hash and Nonce
+
+```typescript
+// Hash data for integrity verification
+// Frontend: src/lib/aleo-utils.ts:92
+function hashData(data: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(data);
+  
+  let hash = BigInt(0);
+  for (let i = 0; i < bytes.length; i++) {
+    hash = hash + BigInt(bytes[i]) * BigInt(i + 1);
+  }
+  hash = hash * BigInt(31) + BigInt(17);
+  
+  return `${hash.toString()}field`;
+}
+
+// Generate cryptographically random nonce
+// Frontend: src/lib/aleo-utils.ts:108
+function generateNonce(): string {
+  const randomBytes = new Uint8Array(16);
+  crypto.getRandomValues(randomBytes); // Browser crypto API
+  
+  let nonce = BigInt(0);
+  for (let i = 0; i < randomBytes.length; i++) {
+    nonce = (nonce << BigInt(8)) | BigInt(randomBytes[i]);
+  }
+  
+  return `${nonce.toString()}field`;
+}
+
+// Example
+data_hash: "1234567890123456789field"
+nonce: "98765432109876543210987654321field"
+```
+
+#### Step 4: Backend Transaction Execution
+
+```typescript
+// Backend: Prepare transaction
+const inputs = [
+  dataPart1, dataPart2, dataPart3, dataPart4,
+  dataPart5, dataPart6, dataPart7, dataPart8,
+  dataPart9, dataPart10, dataPart11, dataPart12,
+  `${recordType}u8`,        // e.g., "1u8" for General Health
+  dataHash,                 // "1234567890123456789field"
+  nonce,                    // Random field element
+  makeDiscoverable ? 'true' : 'false'
+];
+
+const transaction = await aleoSDK.execute(
+  'salud_health_records_v6.aleo',
+  'create_record',
+  inputs,
+  account.privateKey()
+);
+```
+
+#### Step 5: Smart Contract Processing
+
+```leo
+// Contract: src/main.leo:163
+async transition create_record(
+    data_part1: field,
+    // ... data_part2-12
+    record_type: u8,
+    data_hash: field,
+    nonce: field,
+    make_discoverable: bool
+) -> (MedicalRecord, Future) {
+    // 1. Validate record type
+    assert(record_type >= 1u8 && record_type <= 10u8);
+    
+    // 2. Generate unique record ID
+    let record_id: field = BHP256::hash_to_field(RecordIdInput {
+        patient: self.caller,
+        data_hash: data_hash,
+        nonce: nonce,
+    });
+    
+    // 3. Create private record (owned by patient)
+    let medical_record: MedicalRecord = MedicalRecord {
+        owner: self.caller,
+        record_id: record_id,
+        data_hash: data_hash,
+        data_part1: data_part1,
+        // ... data_part2-12
+        record_type: record_type,
+        created_at: 0u32,
+        version: 1u8,
+    };
+    
+    // 4. Return record + async finalize
+    return (medical_record, finalize_create_record(...));
+}
+
+// 5. Update public mappings
+async function finalize_create_record(
+    patient: address,
+    record_id: field,
+    record_type: u8,
+    make_discoverable: bool
+) {
+    // Increment patient's record count
+    let count = patient_record_count.get_or_use(patient as field, 0u64);
+    patient_record_count.set(patient as field, count + 1u64);
+    
+    // Optionally add to public index
+    if make_discoverable {
+        record_metadata.set(record_id, RecordMetadata {
+            patient: patient,
+            record_id: record_id,
+            record_type: record_type,
+            created_at: block.height,
+            is_active: true,
+        });
+    }
+}
+```
+
+#### Step 6: Response & Caching
+
+```typescript
+// Backend response
+{
+  success: true,
+  data: {
+    transactionId: "at1...",
+    recordId: "1234567890123456789field"
+  }
+}
+
+// Frontend caches in IndexedDB
+const cachedRecord = {
+  id: generateLocalId(),
+  recordId: "1234567890123456789field",
+  title: "Annual Checkup 2024",
+  description: "Blood pressure: 120/80...",
+  recordType: 1,
+  createdAt: new Date().toISOString(),
+  ownerAddress: userAddress,
+  isEncrypted: false,
+};
+
+await db.records.add(cachedRecord);
+```
+
+## 3. Grant Access Flow
+
+### Access Token Generation Pipeline
+
+```mermaid
+sequenceDiagram
+    participant P as Patient
+    participant F as Frontend
+    participant B as Backend
+    participant C as Smart Contract
+    participant M as Mappings
+    
+    P->>F: Click "Share" on record
+    F->>P: Prompt for doctor address
+    P->>F: Enter doctor: aleo1xyz...
+    F->>F: Generate random nonce
+    F->>B: POST /access/grant
+    Note over B: {sessionId, recordId, doctorAddress, nonce}
+    
+    B->>B: Retrieve MedicalRecord from session
+    B->>C: Execute grant_access()
+    Note over C: grant_access(record, doctor, 5760u32, nonce)
+    
+    C->>C: Validate: caller == record.owner
+    C->>C: Validate: doctor != caller
+    C->>C: Clamp duration (240-40320 blocks)
+    
+    C->>C: Generate access_token
+    Note over C: BHP256::hash(record_id + doctor + patient + nonce)
+    
+    C->>M: Store AccessGrant
+    Note over M: access_grants[token] = grant
+    M->>M: Set token valid flag
+    Note over M: access_token_valid[token] = true
+    
+    M-->>C: Stored
+    C-->>B: {transaction_id, access_token}
+    B-->>F: {success, token}
+    
+    F->>F: Generate QR code
+    Note over F: QR data = {recordId, token, expiresAt}
+    F-->>P: Display QR code
+```
+
+### Access Token Data Structure
+
+```typescript
+// QR Code Payload
+interface QRCodeData {
+  recordId: string;      // "1234567890field"
+  accessToken: string;   // "9876543210field"
+  expiresAt: number;     // Block height: 12345
+  patientAddress: string; // "aleo1..."
+}
+
+// On-Chain AccessGrant (stored in public mapping)
+struct AccessGrant {
+  patient: address;      // aleo1abc...
+  doctor: address;       // aleo1xyz...
+  record_id: field;      // 1234567890field
+  access_token: field;   // 9876543210field (hash of above + nonce)
+  granted_at: u32;       // Block height when granted: 10000
+  expires_at: u32;       // Block height when expires: 15760 (24h later)
+  is_revoked: bool;      // false
+}
+```
+
+## 4. Doctor Access Verification Flow
+
+```mermaid
+graph TD
+    A[Doctor Scans QR Code] -->|Parse JSON| B{Valid Format?}
+    B -->|No| C[Show Error]
+    B -->|Yes| D[Extract: recordId, token, expiresAt]
+    D --> E[Frontend: Check expiration locally]
+    E -->|Expired| F[Show "Access Expired"]
+    E -->|Valid| G[Backend: POST /access/verify]
+    G --> H[Smart Contract: verify_access]
+    
+    H --> I{Token Exists?}
+    I -->|No| J[Assertion Failed]
+    I -->|Yes| K{Doctor Matches?}
+    K -->|No| J
+    K -->|Yes| L{Record ID Matches?}
+    L -->|No| J
+    L -->|Yes| M{Not Revoked?}
+    M -->|No| J
+    M -->|Yes| N{Not Expired?}
+    N -->|No| J
+    N -->|Yes| O[All Assertions Pass]
+    
+    J --> P[Transaction Fails]
+    O --> Q[Transaction Succeeds]
+    
+    P --> R[Frontend: Show "Access Denied"]
+    Q --> S[Frontend: Fetch & Decrypt Record]
+    S --> T[Display Medical Data to Doctor]
+```
+
+### Verification Logic (Smart Contract)
+
+```leo
+// Contract: src/main.leo:342
+async transition verify_access(
+    access_token: field,
+    doctor: address,
+    record_id: field
+) -> Future {
+    return finalize_verify_access(access_token, doctor, record_id);
+}
+
+async function finalize_verify_access(
+    access_token: field,
+    doctor: address,
+    record_id: field
+) {
+    // Step 1: Check token exists
+    let is_valid: bool = access_token_valid.get_or_use(access_token, false);
+    assert(is_valid); // ❌ Fails if token not found
+    
+    // Step 2: Get full grant details
+    let grant: AccessGrant = access_grants.get(access_token);
+    
+    // Step 3: Verify doctor address
+    assert_eq(grant.doctor, doctor); // ❌ Fails if wrong doctor
+    
+    // Step 4: Verify record ID
+    assert_eq(grant.record_id, record_id); // ❌ Fails if wrong record
+    
+    // Step 5: Check not revoked
+    assert(!grant.is_revoked); // ❌ Fails if revoked
+    
+    // Step 6: Check not expired
+    assert(block.height <= grant.expires_at); // ❌ Fails if expired
+    
+    // ✅ All checks pass - transaction succeeds
+}
+```
+
+## 5. Record Fetching Flow
+
+### Blockchain → Frontend Pipeline
+
+```mermaid
+sequenceDiagram
+    participant F as Frontend
+    participant B as Backend
+    participant A as Aleo SDK
+    participant BC as Blockchain
+    participant DB as IndexedDB
+    
+    F->>B: GET /records/fetch/:sessionId
+    B->>A: Query blockchain with view key
+    A->>BC: Fetch records owned by address
+    BC-->>A: Array of MedicalRecord (encrypted)
+    A->>A: Decrypt with view key
+    A-->>B: Decrypted record data
+    
+    B->>B: Parse field elements
+    Note over B: fieldElementsToString()
+    B->>B: Extract title & description
+    Note over B: JSON.parse(dataStr)
+    
+    B-->>F: [{id, title, description, ...}]
+    F->>DB: Cache all records
+    F->>F: Update UI state
+    F-->>F: Display records list
+```
+
+### Field Element Decoding
+
+```typescript
+// Backend: Convert 12 field elements → string
+function fieldElementsToString(fields: string[]): string {
+  const allBytes: number[] = [];
+  
+  for (const fieldStr of fields) {
+    // "123456field" → 123456n (BigInt)
+    const valueStr = fieldStr.replace('field', '');
+    if (valueStr === '0') continue; // Skip padding
+    
+    let value = BigInt(valueStr);
+    const bytes: number[] = [];
+    
+    // Convert BigInt → bytes
+    while (value > 0n) {
+      bytes.unshift(Number(value & 0xFFn));
+      value = value >> 8n;
+    }
+    
+    allBytes.push(...bytes);
+  }
+  
+  // bytes → UTF-8 string
+  const decoder = new TextDecoder();
+  return decoder.decode(new Uint8Array(allBytes));
+}
+
+// Example
+Input: [
+  "123456789012345678901234567890field",
+  "987654321098765432109876543210field",
+  "0field", // padding
+  // ... more fields
+]
+
+Output: '{"t":"Annual Checkup 2024","d":"Blood pressure: 120/80..."}'
+
+// Then parse JSON
+const parsed = JSON.parse(output);
+// { t: "Annual Checkup 2024", d: "Blood pressure: 120/80..." }
+```
+
+## Data Flow Summary
+
+### Operation Comparison
+
+| Operation | Frontend → Backend | Backend → Blockchain | Blockchain Storage | Response Time |
+|-----------|-------------------|---------------------|-------------------|---------------|
+| **Connect Wallet** | Private key | Derive account | None | Less than 1s |
+| **Create Record** | 12 fields + metadata | Execute create_record | Private record + mappings | ~15s (1 block) |
+| **Grant Access** | recordId + doctor | Execute grant_access | AccessGrant mapping | ~15s |
+| **Verify Access** | token + doctor | Execute verify_access | Read-only | ~15s |
+| **Fetch Records** | sessionId | Query with view key | Read private records | 5-10s |
+| **Revoke Access** | accessToken | Execute revoke_access | Update mapping | ~15s |
+
+### Data Size Limits
+
+```
+┌─────────────────────────────────────────┐
+│ Medical Record Storage Capacity         │
+├─────────────────────────────────────────┤
+│ Field Elements: 12                      │
+│ Bytes per Field: ~30                    │
+│ Total Capacity: ~360 bytes              │
+│                                         │
+│ Suitable for:                           │
+│ ✅ Prescriptions (~200 bytes)           │
+│ ✅ Lab results (~300 bytes)             │
+│ ✅ Vaccination records (~150 bytes)     │
+│ ✅ Basic medical notes (~350 bytes)     │
+│                                         │
+│ Not suitable for:                       │
+│ ❌ X-ray images (MBs)                   │
+│ ❌ Full medical history (KBs)           │
+│ ❌ Lengthy diagnoses (>360 bytes)       │
+│                                         │
+│ Solution: Use multiple records or       │
+│ off-chain storage (IPFS) with on-chain │
+│ hash for large data                     │
+└─────────────────────────────────────────┘
+```
+
+## Performance Optimization
+
+### Frontend Caching Strategy
+
+```typescript
+// On initial load
+1. Check IndexedDB for cached records
+2. Display cached records immediately (fast UX)
+3. Fetch from blockchain in background
+4. Update cache with latest data
+5. Refresh UI if changes detected
+
+// On record creation
+1. Submit transaction
+2. Immediately add to cache (optimistic UI)
+3. Wait for blockchain confirmation
+4. Update cache with final recordId
+5. Show success notification
+```
+
+### Backend Session Management
+
+```typescript
+// In-memory session store
+const sessions = new Map<string, {
+  account: Account,
+  address: string,
+  viewKey: string,
+  createdAt: number,
+}>;
+
+// Auto-cleanup after 24 hours
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, session] of sessions) {
+    if (now - session.createdAt > 24 * 60 * 60 * 1000) {
+      sessions.delete(id);
+    }
+  }
+}, 60 * 60 * 1000); // Check every hour
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Encryption Details" href="/architecture/encryption" icon="shield-halved">
+    Deep dive into encryption implementation
+  </Card>
+  <Card title="Smart Contract" href="/smart-contract/overview" icon="file-contract">
+    Leo smart contract documentation
+  </Card>
+</CardGroup>

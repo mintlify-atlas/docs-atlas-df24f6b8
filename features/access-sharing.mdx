@@ -1,0 +1,368 @@
+---
+title: Access Sharing
+description: Share medical records with healthcare providers using time-limited access grants
+icon: share-2
+---
+
+## Overview
+
+Salud's access sharing system allows you to securely share medical records with healthcare providers using temporary, cryptographically-secured access tokens. All access grants are time-limited and can be revoked at any time.
+
+<Info>
+  Access sharing uses Aleo blockchain's public mappings to verify permissions while keeping your medical data encrypted and private.
+</Info>
+
+## How Access Sharing Works
+
+Access sharing in Salud uses a three-step verification process:
+
+<Steps>
+  <Step title="Generate Access Token">
+    You create a time-limited access grant for a specific record and doctor
+  </Step>
+  
+  <Step title="Share Token">
+    The access token is shared via QR code or copied text
+  </Step>
+  
+  <Step title="Verify on Blockchain">
+    Doctor scans the QR code and access is verified against the Aleo blockchain
+  </Step>
+</Steps>
+
+## Access Grant Structure
+
+Each access grant contains the following information:
+
+```typescript
+struct AccessGrant {
+  patient: address      // Who granted access
+  doctor: address       // Who has access  
+  record_id: field      // Which record
+  access_token: field   // Cryptographic proof
+  granted_at: u32       // When granted (block height)
+  expires_at: u32       // When expires (block height)
+  is_revoked: bool      // Manual revocation flag
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Time-Limited" icon="clock">
+    Access automatically expires after the specified duration
+  </Card>
+  
+  <Card title="Revocable" icon="x-circle">
+    You can manually revoke access before expiration
+  </Card>
+  
+  <Card title="Doctor-Specific" icon="user">
+    Optionally restrict access to a specific doctor's address
+  </Card>
+  
+  <Card title="Blockchain-Verified" icon="shield">
+    Access verification happens on-chain for security
+  </Card>
+</CardGroup>
+
+## Granting Access
+
+### From the UI
+
+1. Navigate to **My Records**
+2. Click on the record you want to share
+3. Click the **Share** button
+4. Configure access settings:
+   - **Doctor's Address** (optional): Enter the doctor's Aleo address
+   - **Duration**: Choose from 1 hour to 7 days
+5. Click **Generate QR Code**
+6. Share the QR code with your healthcare provider
+
+<Note>
+  Leaving the doctor's address empty allows any doctor with the QR code to access the record. For maximum security, always enter a specific doctor's address.
+</Note>
+
+### Access Duration Options
+
+Salud offers 6 predefined duration options:
+
+| Duration | Blocks | Use Case |
+|----------|--------|----------|
+| 1 Hour | 240 | Quick consultation |
+| 4 Hours | 960 | Extended appointment |
+| 12 Hours | 2,880 | Half day access |
+| 24 Hours | 5,760 | Full day access |
+| 3 Days | 17,280 | Multi-day care |
+| 7 Days | 40,320 | Extended care (maximum) |
+
+<Warning>
+  Duration is measured in Aleo block heights. Each block takes approximately 15 seconds, so 240 blocks equals about 1 hour.
+</Warning>
+
+### Using the Contract
+
+Access is granted using the `grant_access` transition:
+
+```leo
+async transition grant_access(
+    medical_record: MedicalRecord,
+    doctor: address,
+    duration_blocks: u32,
+    nonce: field
+) -> (MedicalRecord, field, Future)
+```
+
+**Parameters:**
+- `medical_record`: The record to share
+- `doctor`: Healthcare provider's Aleo address
+- `duration_blocks`: Access duration (240-40320 blocks)
+- `nonce`: Client-provided randomness for token generation
+
+**Returns:**
+- The original medical record (ownership maintained)
+- Access token (to be shared with doctor)
+- Future for async execution
+
+**Duration Bounds:**
+- Minimum: 240 blocks (~1 hour)
+- Maximum: 40,320 blocks (~7 days)
+- Default: 5,760 blocks (~24 hours)
+
+## Implementation Example
+
+Here's how access grants are created in the frontend:
+
+```typescript
+// From ShareRecordModal.tsx:102-141
+const handleGenerate = async () => {
+  if (!record || !user) return;
+
+  if (doctorAddress && !doctorAddress.startsWith('aleo1')) {
+    setAddressError('Invalid Aleo address format');
+    return;
+  }
+
+  // Generate access token
+  const token = `token_${Math.random().toString(36).substring(2, 15)}_${Date.now()}`;
+  
+  // Calculate expiration time (15 sec per block)
+  const now = new Date();
+  const expirationTime = new Date(now.getTime() + (durationBlocks * 15 * 1000));
+  
+  // Generate or get view key for this record
+  const viewKey = user.viewKey || generateViewKey(user.address);
+  
+  // Encrypt view key with doctor's public key
+  const doctorPublicKey = doctorAddress 
+    ? derivePublicKey(doctorAddress) 
+    : derivePublicKey(user.address);
+  const encViewKey = encryptWithPublicKey(viewKey, doctorPublicKey);
+  
+  // Create access grant
+  createAccessGrant({
+    accessToken: token,
+    recordId: record.recordId || record.id,
+    patientAddress: user.address,
+    doctorAddress: doctorAddress || '',
+    grantedAt: now,
+    expiresAt: expirationTime,
+    durationBlocks,
+    isRevoked: false,
+  });
+}
+```
+
+## Managing Access Grants
+
+### Viewing Active Shares
+
+Navigate to the **Shared Access** page to see all your access grants:
+
+<CardGroup cols={3}>
+  <Card title="Active Shares" icon="check-circle">
+    Currently valid access grants
+  </Card>
+  
+  <Card title="Expired" icon="clock">
+    Access grants that have passed their expiration time
+  </Card>
+  
+  <Card title="Revoked" icon="x-circle">
+    Access grants you manually revoked
+  </Card>
+</CardGroup>
+
+### Access Grant Card Details
+
+Each access grant shows:
+
+- **Record Title**: Which medical record is shared
+- **Record Type**: Category badge (e.g., Lab Results, Prescription)
+- **Doctor Address**: Truncated Aleo address of the healthcare provider
+- **Expiration Time**: When access will automatically expire
+- **Grant Time**: When you created the access grant
+- **Status Badge**: Active, Expired, or Revoked
+
+```typescript
+// From SharedAccessPage.tsx:49-51
+const activeGrants = userGrants.filter((g) => !g.isRevoked && !g.isExpired);
+const expiredGrants = userGrants.filter((g) => g.isExpired);
+const revokedGrants = userGrants.filter((g) => g.isRevoked);
+```
+
+## Revoking Access
+
+You can manually revoke access before it expires:
+
+1. Go to **Shared Access** page
+2. Find the active grant you want to revoke
+3. Click **Revoke Access**
+4. Confirm the revocation
+
+<Warning>
+  Revocation is immediate and cannot be undone. The doctor will lose access to the record immediately.
+</Warning>
+
+### Revocation Contract Call
+
+```leo
+async transition revoke_access(
+    access_token: field
+) -> Future
+```
+
+**Security**: Only the original patient (grant creator) can revoke access.
+
+## Doctor Access Verification
+
+When a doctor scans your QR code, the system verifies:
+
+<AccordionGroup>
+  <Accordion title="Token Exists">
+    The access token must exist in the blockchain's access_grants mapping
+  </Accordion>
+  
+  <Accordion title="Doctor Match">
+    If a specific doctor was specified, addresses must match
+  </Accordion>
+  
+  <Accordion title="Record Match">
+    The record ID in the token must match the requested record
+  </Accordion>
+  
+  <Accordion title="Not Revoked">
+    The access grant must not be manually revoked
+  </Accordion>
+  
+  <Accordion title="Not Expired">
+    Current block height must be before the expiration block
+  </Accordion>
+</AccordionGroup>
+
+### Verification Contract Call
+
+```leo
+async transition verify_access(
+    access_token: field,
+    doctor: address,
+    record_id: field
+) -> Future
+```
+
+The transaction succeeds if all checks pass, or fails if access is denied.
+
+## Privacy and Security
+
+### What's Protected
+
+<CardGroup cols={2}>
+  <Card title="Medical Data Stays Encrypted" icon="lock">
+    The access token only verifies permission - medical data remains encrypted
+  </Card>
+  
+  <Card title="Cryptographic Tokens" icon="key">
+    Access tokens use client-provided nonces for unpredictability
+  </Card>
+  
+  <Card title="Blockchain Verification" icon="shield">
+    All access checks happen on-chain and cannot be forged
+  </Card>
+  
+  <Card title="Automatic Expiration" icon="clock">
+    Enforced at block height level - cannot be bypassed
+  </Card>
+</CardGroup>
+
+### Best Practices
+
+<Steps>
+  <Step title="Use Doctor-Specific Grants">
+    Always enter the doctor's Aleo address when possible for maximum security
+  </Step>
+  
+  <Step title="Minimum Duration">
+    Choose the shortest duration needed for the appointment
+  </Step>
+  
+  <Step title="Verify Before Sharing">
+    Double-check the doctor's address before generating the QR code
+  </Step>
+  
+  <Step title="Revoke When Done">
+    Manually revoke access after the appointment if you want immediate termination
+  </Step>
+</Steps>
+
+## Encrypted View Keys
+
+Access grants include encrypted view keys for data decryption:
+
+1. **View Key Generation**: A view key is generated or retrieved for the record
+2. **Public Key Derivation**: The doctor's public key is derived from their address
+3. **Encryption**: View key is encrypted with the doctor's public key
+4. **QR Code Inclusion**: Encrypted view key is included in the QR code data
+5. **Doctor Decryption**: Doctor uses their private key to decrypt the view key
+6. **Record Access**: Decrypted view key allows access to the medical record
+
+```typescript
+// From ShareRecordModal.tsx:120-124
+const viewKey = user.viewKey || generateViewKey(user.address);
+const doctorPublicKey = doctorAddress 
+  ? derivePublicKey(doctorAddress) 
+  : derivePublicKey(user.address);
+const encViewKey = encryptWithPublicKey(viewKey, doctorPublicKey);
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Doctor can't access record">
+    - Verify the access hasn't expired
+    - Check if you revoked the access
+    - Ensure doctor is using the correct Aleo address
+    - Confirm the QR code data wasn't corrupted
+  </Accordion>
+  
+  <Accordion title="Can't create access grant">
+    - Make sure you own the medical record
+    - Check you have Aleo credits for the transaction
+    - Verify doctor's address format (must start with 'aleo1')
+  </Accordion>
+  
+  <Accordion title="Access shows as expired immediately">
+    - Check your system clock is synchronized
+    - Verify the duration was set correctly
+    - Ensure the blockchain block height is current
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="QR Code Sharing" icon="qr-code" href="/features/qr-code-sharing">
+    Learn about QR code generation and scanning
+  </Card>
+  
+  <Card title="Privacy & Security" icon="shield" href="/features/privacy-security">
+    Understand the security model
+  </Card>
+</CardGroup>

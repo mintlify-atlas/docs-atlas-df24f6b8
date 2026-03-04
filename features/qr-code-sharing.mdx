@@ -1,0 +1,511 @@
+---
+title: QR Code Sharing
+description: Generate and scan QR codes for instant medical record access
+icon: qr-code
+---
+
+## Overview
+
+Salud uses QR codes as a convenient and secure method to share medical records with healthcare providers. QR codes encode all necessary information for access verification and record decryption.
+
+<Info>
+  QR codes contain encrypted data and access tokens - they are safe to display on your phone screen during appointments.
+</Info>
+
+## QR Code Data Structure
+
+Each QR code contains the following JSON data:
+
+```typescript
+interface QRCodeData {
+  version: number              // Protocol version (currently 1)
+  accessToken: string          // Cryptographic access token
+  recordId: string             // Unique record identifier
+  patientAddress: string       // Your Aleo wallet address
+  expiresAt: number            // Unix timestamp of expiration
+  encryptedViewKey?: string    // Encrypted with doctor's public key
+  encryptedData?: string       // The encrypted record data
+}
+```
+
+<CardGroup cols={2}>
+  <Card title="Version Control" icon="code">
+    Protocol version ensures compatibility across updates
+  </Card>
+  
+  <Card title="Access Token" icon="key">
+    Cryptographic proof verified on blockchain
+  </Card>
+  
+  <Card title="Encrypted View Key" icon="lock">
+    Allows doctor to decrypt the medical data
+  </Card>
+  
+  <Card title="Expiration" icon="clock">
+    Built-in time limit prevents stale access
+  </Card>
+</CardGroup>
+
+## Generating QR Codes
+
+### Step-by-Step Process
+
+<Steps>
+  <Step title="Select Record">
+    From the Records page, click on the record you want to share
+  </Step>
+  
+  <Step title="Click Share">
+    Click the "Share" button to open the share modal
+  </Step>
+  
+  <Step title="Configure Access">
+    - Enter doctor's Aleo address (optional)
+    - Select access duration (1 hour to 7 days)
+  </Step>
+  
+  <Step title="Generate QR Code">
+    Click "Generate QR Code" to create the shareable QR code
+  </Step>
+  
+  <Step title="Share with Doctor">
+    Show the QR code on your screen or download it as an image
+  </Step>
+</Steps>
+
+### QR Code Generation Example
+
+Here's how QR codes are generated in the application:
+
+```typescript
+// From ShareRecordModal.tsx:175-185
+const qrData: QRCodeData = {
+  version: 1,
+  accessToken,
+  recordId: record.recordId,
+  patientAddress: user.address,
+  expiresAt: expiresAt?.getTime() || 0,
+  encryptedViewKey,
+  encryptedData: record.data,
+};
+
+// Generate QR code from JSON data
+<QRCodeSVG
+  value={JSON.stringify(qrData)}
+  size={200}
+  level="H"  // High error correction
+  includeMargin
+/>
+```
+
+<Note>
+  QR codes use high error correction (Level H) to ensure they remain scannable even if partially damaged or obscured.
+</Note>
+
+## QR Code Features
+
+### Visual Elements
+
+<CardGroup cols={2}>
+  <Card title="200x200 pixels" icon="maximize">
+    Standard size optimized for mobile scanning
+  </Card>
+  
+  <Card title="High Error Correction" icon="shield-check">
+    Can recover from 30% data loss or damage
+  </Card>
+  
+  <Card title="Margin Included" icon="square">
+    Built-in quiet zone for reliable scanning
+  </Card>
+  
+  <Card title="Optional Logo" icon="image">
+    Can embed Salud logo in center
+  </Card>
+</CardGroup>
+
+### Live Countdown Timer
+
+QR codes display a real-time countdown showing remaining access time:
+
+```typescript
+// From ShareRecordModal.tsx:72-99
+useEffect(() => {
+  if (!expiresAt) return;
+
+  const updateCountdown = () => {
+    const now = new Date();
+    const diff = expiresAt.getTime() - now.getTime();
+
+    if (diff <= 0) {
+      setCountdown('Expired');
+      return;
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    if (hours > 0) {
+      setCountdown(`${hours}h ${minutes}m ${seconds}s`);
+    } else if (minutes > 0) {
+      setCountdown(`${minutes}m ${seconds}s`);
+    } else {
+      setCountdown(`${seconds}s`);
+    }
+  };
+
+  updateCountdown();
+  const interval = setInterval(updateCountdown, 1000);
+  return () => clearInterval(interval);
+}, [expiresAt]);
+```
+
+## Scanning QR Codes
+
+### Doctor Portal Scanner
+
+Healthcare providers use the Doctor Portal to scan patient QR codes:
+
+<Steps>
+  <Step title="Navigate to Doctor Portal">
+    Click "Doctor Portal" in the main navigation
+  </Step>
+  
+  <Step title="Connect Wallet">
+    Doctor must connect their Aleo wallet first
+  </Step>
+  
+  <Step title="Start Scanner">
+    Click "Start Scanning" to activate the camera
+  </Step>
+  
+  <Step title="Scan QR Code">
+    Position the patient's QR code within the scanner frame
+  </Step>
+  
+  <Step title="View Record">
+    Access is verified on blockchain and record is displayed
+  </Step>
+</Steps>
+
+### Scanner Implementation
+
+The scanner uses the html5-qrcode library for camera access:
+
+```typescript
+// From DoctorQRScanner.tsx:53-79
+const startScanner = async () => {
+  setError(null);
+  setScanStatus('scanning');
+
+  try {
+    const scanner = new Html5Qrcode('qr-reader');
+    scannerRef.current = scanner;
+
+    await scanner.start(
+      { facingMode: 'environment' },  // Use back camera
+      {
+        fps: 10,                      // 10 frames per second
+        qrbox: { width: 250, height: 250 },  // Scan area size
+        aspectRatio: 1,               // Square aspect ratio
+      },
+      onScanSuccess,
+      onScanFailure
+    );
+
+    setCameraPermission(true);
+  } catch (err) {
+    console.error('Scanner error:', err);
+    setCameraPermission(false);
+    setError('Unable to access camera. Please grant camera permissions.');
+    setScanStatus('idle');
+  }
+};
+```
+
+<Warning>
+  Camera permissions must be granted for QR code scanning. The browser will prompt for permission on first use.
+</Warning>
+
+## Scan Verification Process
+
+When a QR code is scanned, the system performs several checks:
+
+<AccordionGroup>
+  <Accordion title="1. Parse QR Data">
+    The QR code JSON is parsed and validated for required fields
+    ```typescript
+    const data: QRCodeData = JSON.parse(decodedText);
+    if (!data.accessToken || !data.recordId || !data.patientAddress) {
+      throw new Error('Invalid QR code format');
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="2. Check Expiration">
+    Verify the access hasn't expired based on the embedded timestamp
+    ```typescript
+    if (data.expiresAt < Date.now()) {
+      throw new Error('This access token has expired');
+    }
+    ```
+  </Accordion>
+  
+  <Accordion title="3. Verify on Blockchain">
+    The access token is verified against the Aleo blockchain using `verify_access`
+  </Accordion>
+  
+  <Accordion title="4. Decrypt View Key">
+    Doctor's private key decrypts the view key from the QR code
+    ```typescript
+    const viewKey = decryptWithPrivateKey(
+      data.encryptedViewKey, 
+      doctorAddress
+    );
+    ```
+  </Accordion>
+  
+  <Accordion title="5. Decrypt Medical Data">
+    The decrypted view key is used to access the medical record
+  </Accordion>
+</AccordionGroup>
+
+## QR Code Actions
+
+### Copy Access Token
+
+The access token can be copied as text:
+
+```typescript
+// From ShareRecordModal.tsx:143-150
+const handleCopyToken = async () => {
+  if (!accessToken) return;
+  const success = await copyToClipboard(accessToken);
+  if (success) {
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+};
+```
+
+### Download QR Code
+
+QR codes can be downloaded as PNG images:
+
+```typescript
+// From ShareRecordModal.tsx:152-173
+const handleDownloadQR = () => {
+  const svg = document.getElementById('qr-code-svg');
+  if (!svg) return;
+
+  const svgData = new XMLSerializer().serializeToString(svg);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const img = new Image();
+
+  img.onload = () => {
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx?.drawImage(img, 0, 0);
+    const pngFile = canvas.toDataURL('image/png');
+    const downloadLink = document.createElement('a');
+    downloadLink.download = `salud-qr-${title}.png`;
+    downloadLink.href = pngFile;
+    downloadLink.click();
+  };
+
+  img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
+};
+```
+
+<Info>
+  Downloaded QR codes can be printed or sent electronically to the healthcare provider ahead of appointments.
+</Info>
+
+## Scanner States
+
+The QR scanner has five different states:
+
+<CardGroup cols={2}>
+  <Card title="Idle" icon="circle">
+    Scanner is ready to start - shows "Start Scanning" button
+  </Card>
+  
+  <Card title="Scanning" icon="camera">
+    Camera is active and looking for QR codes
+  </Card>
+  
+  <Card title="Verifying" icon="loader">
+    QR code found, verifying access on blockchain
+  </Card>
+  
+  <Card title="Success" icon="check-circle">
+    Access verified, displaying medical record
+  </Card>
+  
+  <Card title="Error" icon="x-circle">
+    Verification failed or QR code invalid
+  </Card>
+</CardGroup>
+
+## Security Considerations
+
+### QR Code Safety
+
+<CardGroup cols={2}>
+  <Card title="Time-Limited" icon="clock">
+    QR codes automatically expire after the specified duration
+  </Card>
+  
+  <Card title="One-Time Use" icon="key">
+    Each QR code contains a unique access token
+  </Card>
+  
+  <Card title="Blockchain Verified" icon="shield">
+    Access verification happens on-chain, can't be forged
+  </Card>
+  
+  <Card title="Encrypted Data" icon="lock">
+    Medical data in QR code is encrypted, requires view key
+  </Card>
+</CardGroup>
+
+### Best Practices
+
+<Steps>
+  <Step title="Display Only When Needed">
+    Don't leave QR codes visible longer than necessary
+  </Step>
+  
+  <Step title="Verify Doctor First">
+    Confirm you're sharing with the correct healthcare provider
+  </Step>
+  
+  <Step title="Use Short Durations">
+    Select the minimum duration needed for the appointment
+  </Step>
+  
+  <Step title="Delete Downloaded QR Codes">
+    Remove saved QR code images after use
+  </Step>
+</Steps>
+
+<Warning>
+  Never share QR code screenshots publicly or on social media. Anyone with the QR code can access the medical record during its valid period.
+</Warning>
+
+## Doctor View After Scanning
+
+After successful verification, doctors see:
+
+- **Success Badge**: Green confirmation that access is verified
+- **Record Title**: Name of the medical record
+- **Record Type**: Category badge (Lab Results, Prescription, etc.)
+- **Record Description**: Full medical information
+- **Patient Address**: Truncated Aleo address of the patient
+- **Expiration Time**: When access will expire
+- **Access Token**: The cryptographic token used for verification
+- **Privacy Notice**: Information about blockchain security
+
+```typescript
+// From DoctorQRScanner.tsx:263-348
+{scanStatus === 'success' && recordData && (
+  <motion.div className="space-y-4">
+    {/* Success badge */}
+    <div className="flex items-center justify-center gap-2 rounded-lg bg-success-50 p-4">
+      <CheckCircle2 className="text-success-600" />
+      <span className="font-medium text-success-900">
+        Access Verified Successfully
+      </span>
+    </div>
+
+    {/* Record details */}
+    <div className="rounded-xl border border-slate-200 bg-white p-6">
+      <div className="mb-4 flex items-start gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-100">
+          <FileText className="text-primary-600" />
+        </div>
+        <div>
+          <h3 className="font-semibold text-slate-900">
+            {recordData.title}
+          </h3>
+          <Badge variant="primary" size="sm" className="mt-1">
+            {RECORD_TYPES[recordData.recordType].name}
+          </Badge>
+        </div>
+      </div>
+
+      <p className="mb-4 text-sm text-slate-600">
+        {recordData.description}
+      </p>
+
+      {/* Metadata */}
+      <div className="space-y-2 border-t border-slate-100 pt-4">
+        <div className="flex items-center justify-between text-sm">
+          <span className="flex items-center gap-2 text-slate-500">
+            <User size={14} />
+            Patient
+          </span>
+          <span className="font-mono text-xs text-slate-700">
+            {truncateAddress(recordData.patientAddress, 8, 6)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="flex items-center gap-2 text-slate-500">
+            <Clock size={14} />
+            Access Expires
+          </span>
+          <span className="text-slate-700">
+            {formatDateTime(recordData.expiresAt)}
+          </span>
+        </div>
+      </div>
+    </div>
+  </motion.div>
+)}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="QR code won't scan">
+    - Ensure good lighting and steady camera position
+    - Check that camera permissions are granted
+    - Try adjusting distance between camera and QR code
+    - Clean phone camera lens if blurry
+  </Accordion>
+  
+  <Accordion title="Scanner shows 'Invalid QR code'">
+    - Verify the QR code is from Salud Health app
+    - Check if the QR code image is corrupted
+    - Ensure the QR code hasn't expired
+    - Try generating a new QR code
+  </Accordion>
+  
+  <Accordion title="'Access Denied' after scanning">
+    - Check if access has been revoked by patient
+    - Verify you're using the correct Aleo wallet address
+    - Confirm the QR code hasn't expired
+    - Ensure blockchain connection is active
+  </Accordion>
+  
+  <Accordion title="Camera won't activate">
+    - Grant camera permissions in browser settings
+    - Check that no other app is using the camera
+    - Try a different browser (Chrome/Safari recommended)
+    - Restart the browser and try again
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Access Sharing" icon="share-2" href="/features/access-sharing">
+    Learn more about access grants and permissions
+  </Card>
+  
+  <Card title="Privacy & Security" icon="shield" href="/features/privacy-security">
+    Understand the security model
+  </Card>
+</CardGroup>

@@ -1,80 +1,307 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick Start'
+description: 'Get started with Salud Health in 5 minutes'
+icon: 'rocket'
 ---
 
-## Get started in three steps
+Get your privacy-preserving medical records system up and running in minutes. This guide will walk you through creating your first encrypted medical record on the Aleo blockchain.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have:
+
+- **Node.js 18+** installed on your system
+- **npm** or **yarn** package manager
+- A modern web browser (Chrome, Firefox, or Safari)
+- An **Aleo private key** (we'll help you get one below)
+
+## Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    Clone the Salud Health repository to your local machine:
+
+    ```bash
+    git clone <repository-url>
+    cd Salud
+    ```
+  </Step>
+
+  <Step title="Install Frontend Dependencies">
+    Navigate to the Main APP directory and install dependencies:
+
+    ```bash
+    cd "Main APP"
+    npm install
+    ```
+
+    <Note>
+      The frontend uses React 18, TypeScript, and Vite for a fast development experience. Key dependencies include `@provablehq/sdk` for Aleo blockchain integration.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment">
+    The frontend connects directly to the Aleo blockchain. No additional backend configuration needed for basic usage.
+
+    Create a `.env` file in the Main APP directory (optional):
+
+    ```env
+    ALEO_NETWORK=testnet
+    ALEO_ENDPOINT=https://api.explorer.provable.com/v1
+    PROGRAM_ID=salud_health_records_v6.aleo
+    ```
+  </Step>
+
+  <Step title="Start the Application">
+    Launch the development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    The application will start at `http://localhost:5173`
+  </Step>
+</Steps>
+
+## Get Your Aleo Wallet
+
+Salud Health requires an Aleo private key to encrypt your medical data before storing it on the blockchain. You have three options:
 
 <AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
+  <Accordion title="Option 1: Export from Leo Wallet (Recommended)">
+    If you already have **Leo Wallet** installed:
+
+    1. Open the Leo Wallet browser extension
+    2. Click on your account avatar
+    3. Go to **Settings** → **Security & Privacy**
+    4. Click **"Export Private Key"**
+    5. Enter your password to authenticate
+    6. Copy the private key (starts with `APrivateKey1...`)
+    7. Paste it into Salud's wallet connect screen
+
+    <Warning>
+      Your private key is like your bank password. Never share it with anyone and store it securely in a password manager.
+    </Warning>
   </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
+
+  <Accordion title="Option 2: Generate New Account (For Testing)">
+    Don't have a wallet yet? Generate one directly in Salud:
+
+    1. Open Salud at `http://localhost:5173`
+    2. Click **"Generate New"** on the wallet connect screen
+    3. Save the generated private key securely
+    4. The app will automatically connect
+
+    <Note>
+      You can later import this account into Leo Wallet or Shield Wallet using the same private key.
+    </Note>
+  </Accordion>
+
+  <Accordion title="Option 3: Export from Shield Wallet">
+    If you use **Shield Wallet**:
+
+    1. Open the Shield Wallet extension
+    2. Go to **Account Settings**
+    3. Select **"Export Private Key"**
+    4. Authenticate with your password
+    5. Copy the private key
+    6. Paste it into Salud
   </Accordion>
 </AccordionGroup>
 
-### Step 2: Deploy your changes
+## Create Your First Medical Record
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+Once connected, you're ready to create your first encrypted medical record:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+<Steps>
+  <Step title="Connect Your Wallet">
+    On the Salud dashboard, paste your Aleo private key or generate a new account. The app will validate your key and establish a secure session.
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```
+    Expected format: APrivateKey1zkp...
+    Length: 59 characters
+    ```
+  </Step>
 
-### Step 3: Go live
+  <Step title="Create a New Record">
+    Click the **"New Record"** button on the dashboard. You'll see a form with the following fields:
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    - **Title**: Brief description (e.g., "Annual Physical 2026")
+    - **Description**: Detailed notes about the visit or condition
+    - **Record Type**: Select from:
+      - General (1)
+      - Lab Results (2)
+      - Prescription (3)
+      - Imaging (4)
+      - Vaccination (5)
+    - **Medical Data**: The actual health information (automatically encrypted)
+  </Step>
 
-## Next steps
+  <Step title="Submit to Blockchain">
+    Click **"Create Record"** to encrypt and store your data on the Aleo blockchain.
 
-Now that you have your docs running, explore these key features:
+    Under the hood, Salud:
+    1. Encrypts your medical data client-side using your private key
+    2. Splits the data into 12 field elements (~360 bytes total capacity)
+    3. Generates a unique record ID using `BHP256::hash_to_field`
+    4. Creates a private `MedicalRecord` on Aleo
 
-<CardGroup cols={2}>
+    ```leo
+    record MedicalRecord {
+        owner: address,
+        record_id: field,
+        data_hash: field,
+        data_part1-12: field,
+        record_type: u8,
+        created_at: u32,
+        version: u8,
+    }
+    ```
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+    <Note>
+      On testnet, this transaction is free. Your record will appear in 10-15 seconds after blockchain confirmation.
+    </Note>
+  </Step>
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+  <Step title="View Your Record">
+    Once confirmed, your encrypted record appears in the dashboard. Click on it to:
+    - View decrypted details (only you can decrypt)
+    - Share with healthcare providers
+    - View access history
+    - Download as PDF
+  </Step>
+</Steps>
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+## Share with a Doctor
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
+One of Salud's most powerful features is time-limited access sharing:
 
-</CardGroup>
+<Steps>
+  <Step title="Select a Record">
+    Click on any medical record in your dashboard to open the details view.
+  </Step>
+
+  <Step title="Click 'Share with Doctor'">
+    In the record details modal, click the **"Share with Doctor"** button.
+  </Step>
+
+  <Step title="Configure Access">
+    Enter the following details:
+
+    - **Doctor's Aleo Address**: The healthcare provider's wallet address (starts with `aleo1...`)
+    - **Access Duration**: Choose from:
+      - 1 hour (240 blocks) - Quick consultation
+      - 24 hours (5,760 blocks) - Standard access
+      - 7 days (40,320 blocks) - Extended care
+
+    <Note>
+      Aleo produces approximately 1 block every 15 seconds, so durations are measured in block heights rather than timestamps.
+    </Note>
+  </Step>
+
+  <Step title="Generate Access Token">
+    Salud creates a cryptographic access token using:
+
+    ```leo
+    BHP256::hash_to_field(AccessTokenInput {
+        record_id: record_id,
+        doctor: doctor,
+        patient: patient,
+        nonce: nonce,
+    })
+    ```
+
+    The token is stored on-chain in the `access_grants` mapping:
+
+    ```leo
+    struct AccessGrant {
+        patient: address,
+        doctor: address,
+        record_id: field,
+        access_token: field,
+        granted_at: u32,
+        expires_at: u32,
+        is_revoked: bool,
+    }
+    ```
+  </Step>
+
+  <Step title="Share QR Code">
+    Salud generates a QR code containing the access token. The doctor can scan this QR code to view your record during the access window.
+
+    <Warning>
+      Access automatically expires after the specified duration. You can also manually revoke access at any time from the Access History page.
+    </Warning>
+  </Step>
+</Steps>
+
+## What Makes Salud Different?
+
+Unlike typical blockchain dApps, Salud provides **medical-grade privacy**:
+
+| Feature | Standard dApp | Salud Health |
+|---------|--------------|---------------|
+| **Data Encryption** | ❌ Not encrypted | ✅ Encrypted with your key |
+| **Medical Privacy** | ❌ Visible to dApp | ✅ Only you can decrypt |
+| **Server Access** | ❌ Can read data | ✅ Zero-knowledge |
+| **Sharing** | ❌ Not possible | ✅ Time-limited tokens |
+| **Security Level** | Standard | **HIPAA-grade** |
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  Your medical data is encrypted in your browser **before** it reaches any server or the blockchain. Even the Aleo network cannot decrypt your records.
 </Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Detailed setup instructions including backend configuration and environment variables
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Learn how Salud integrates with Aleo blockchain for privacy-preserving healthcare
+  </Card>
+  <Card title="Smart Contract" icon="code" href="/contract/introduction">
+    Explore the Leo smart contract powering Salud's medical records
+  </Card>
+  <Card title="Security Guide" icon="shield-check" href="/security/overview">
+    Privacy model and security best practices
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Invalid private key error">
+    Ensure your private key:
+    - Starts with `APrivateKey1`
+    - Is exactly 59 characters long
+    - Has no extra spaces or line breaks
+
+    If you're unsure, use the "Generate New" button to create a fresh account.
+  </Accordion>
+
+  <Accordion title="Records not appearing">
+    Records are fetched from the blockchain on connect, which may take 10-15 seconds. Check:
+    - Browser console for sync status
+    - Network connection to Aleo testnet
+    - That you're using the correct wallet address
+  </Accordion>
+
+  <Accordion title="Transaction failed">
+    On testnet, ensure you have:
+    - Testnet credits in your wallet (get from faucet)
+    - A valid network connection
+    - The correct `PROGRAM_ID` in your environment variables
+
+    Current program: `salud_health_records_v6.aleo`
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+Need assistance?
+
+- Check the [FAQ](/help/faq) for common questions
+- Review the [troubleshooting guide](/help/troubleshooting)
+- Join the Aleo community Discord
+- Open an issue on GitHub

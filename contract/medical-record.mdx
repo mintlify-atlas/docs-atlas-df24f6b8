@@ -1,0 +1,184 @@
+---
+title: "MedicalRecord Structure"
+description: "Private record structure for storing encrypted patient health data on Aleo blockchain"
+---
+
+## Overview
+
+The `MedicalRecord` is a private record structure that stores encrypted patient health data on the Aleo blockchain. Only the patient (record owner) can decrypt and read the contents.
+
+```leo
+record MedicalRecord {
+    owner: address,
+    record_id: field,
+    data_hash: field,
+    data_part1: field,
+    data_part2: field,
+    data_part3: field,
+    data_part4: field,
+    data_part5: field,
+    data_part6: field,
+    data_part7: field,
+    data_part8: field,
+    data_part9: field,
+    data_part10: field,
+    data_part11: field,
+    data_part12: field,
+    record_type: u8,
+    created_at: u32,
+    version: u8,
+}
+```
+
+## Fields
+
+<ResponseField name="owner" type="address" required>
+  The patient's Aleo address. This field establishes automatic record ownership - only the owner can access and decrypt the medical data.
+</ResponseField>
+
+<ResponseField name="record_id" type="field" required>
+  Unique identifier for this medical record. Generated as a hash of the patient address, data hash, and client-provided nonce using BHP256:
+  
+  ```leo
+  BHP256::hash_to_field(RecordIdInput {
+      patient: address,
+      data_hash: field,
+      nonce: field
+  })
+  ```
+  
+  This deterministic generation allows client-side computation before record creation.
+</ResponseField>
+
+<ResponseField name="data_hash" type="field" required>
+  Hash of the original encrypted data for integrity verification. Clients should store this hash to verify data hasn't been tampered with when reconstructing the medical record.
+</ResponseField>
+
+<ResponseField name="data_part1" type="field" required>
+  First segment of encrypted medical data. Each field element can store approximately 31 bytes of encrypted data (~253 bits).
+</ResponseField>
+
+<ResponseField name="data_part2" type="field" required>
+  Second segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part3" type="field" required>
+  Third segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part4" type="field" required>
+  Fourth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part5" type="field" required>
+  Fifth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part6" type="field" required>
+  Sixth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part7" type="field" required>
+  Seventh segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part8" type="field" required>
+  Eighth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part9" type="field" required>
+  Ninth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part10" type="field" required>
+  Tenth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part11" type="field" required>
+  Eleventh segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="data_part12" type="field" required>
+  Twelfth segment of encrypted medical data.
+</ResponseField>
+
+<ResponseField name="record_type" type="u8" required>
+  Category of the medical record. Valid values are 1-10. See [Record Types](/contract/record-types) for the complete enumeration.
+  
+  The contract validates this field: `assert(record_type >= 1u8 && record_type <= 10u8)`
+</ResponseField>
+
+<ResponseField name="created_at" type="u32" required>
+  Block height when the record was created. This field is set to `0u32` in the record itself - the actual creation block height is stored in the public `RecordMetadata` mapping if the record is made discoverable.
+</ResponseField>
+
+<ResponseField name="version" type="u8" required>
+  Schema version for future upgradability. Currently set to `1u8` for all records. This allows the contract to support format changes in future versions while maintaining backward compatibility.
+</ResponseField>
+
+## Storage Capacity
+
+The MedicalRecord structure provides **approximately 372 bytes** of encrypted data storage:
+
+- **12 field elements** × 31 bytes per field = ~372 bytes total capacity
+- Each field can store ~253 bits (31 bytes) of data
+- Data must be encrypted **client-side** before storage
+- For larger medical records, implement chunking across multiple MedicalRecord instances
+
+<Note>
+  The contract architecture comment mentions "~126 bytes encrypted capacity" referring to the original 4-field design, but the current implementation uses 12 fields, providing approximately 372 bytes of storage.
+</Note>
+
+## Privacy Model
+
+MedicalRecord is a **private record**, meaning:
+
+- Only the owner (patient) can view the record contents
+- The record is NOT stored in public blockchain state
+- Access is controlled by Aleo's record ownership model
+- Even with a valid access token, doctors cannot decrypt the data without the patient sharing the encrypted record off-chain
+
+## Creating a Medical Record
+
+Medical records are created using the `create_record` transition:
+
+```typescript
+// 1. Encrypt medical data client-side
+const encryptedData = await encryptWithPatientKey(medicalData);
+const chunks = splitIntoFields(encryptedData, 12); // Split into 12 fields
+
+// 2. Generate unique nonce
+const nonce = generateSecureRandom();
+
+// 3. Hash the data for integrity
+const dataHash = hash(medicalData);
+
+// 4. Call create_record
+const record = await aleoSDK.execute('create_record', [
+  ...chunks, // data_part1 through data_part12
+  recordType, // 1-10
+  dataHash,
+  nonce,
+  makeDiscoverable // true/false
+]);
+```
+
+## Related Structures
+
+- [AccessGrant](/contract/access-grant) - Temporary access permissions for healthcare providers
+- [Record Types](/contract/record-types) - Medical record categories and enumeration
+- RecordMetadata - Public indexing structure (optional)
+
+## Security Considerations
+
+<Warning>
+  **Client-Side Encryption Required**: The contract does NOT encrypt data. All encryption must happen client-side before calling `create_record`. The contract stores whatever field values you provide.
+</Warning>
+
+<Info>
+  **Data Integrity**: Always verify the `data_hash` matches your decrypted data to ensure integrity when reconstructing medical records.
+</Info>
+
+<Check>
+  **Unique Record IDs**: The combination of patient address, data hash, and nonce ensures globally unique record IDs. Clients can compute the record_id before creation using the `compute_record_id` helper function.
+</Check>

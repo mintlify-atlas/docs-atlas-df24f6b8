@@ -1,0 +1,481 @@
+---
+title: 'Testing'
+description: 'Test the Salud Health smart contract and integrations'
+---
+
+## Overview
+
+Testing is critical for ensuring the security and reliability of the Salud Health smart contract. This guide covers Leo contract testing, integration testing, and end-to-end testing.
+
+## Leo Contract Tests
+
+### Running Tests
+
+Execute the Leo test suite:
+
+```bash
+cd salud_health_records
+leo test
+```
+
+All tests should pass before deployment:
+
+```bash
+✓ test_create_record (17 tests passed)
+✓ test_grant_access
+✓ test_verify_access
+✓ test_revoke_access
+✓ test_compute_functions
+```
+
+### Test Coverage
+
+The contract includes 17 comprehensive tests:
+
+<CardGroup cols={2}>
+  <Card title="Record Creation" icon="file-medical">
+    Valid/invalid record types, data encoding, record ID generation
+  </Card>
+  <Card title="Access Management" icon="key">
+    Grant access, verify permissions, expiration, revocation
+  </Card>
+  <Card title="Security" icon="shield">
+    Fake tokens, wrong doctor, unauthorized access, self-grant prevention
+  </Card>
+  <Card title="Edge Cases" icon="triangle-exclamation">
+    Duration bounds, uniqueness, determinism, access info retrieval
+  </Card>
+</CardGroup>
+
+## Integration Testing
+
+### Test Environment Setup
+
+Set up a test environment for integration testing:
+
+```typescript
+import { describe, it, beforeAll, expect } from 'vitest';
+import { Account } from '@aleohq/sdk';
+import { 
+  prepareCreateRecordInputs,
+  generateNonce 
+} from '@/lib/aleo-utils';
+
+describe('Smart Contract Integration', () => {
+  let patientAccount: Account;
+  let doctorAccount: Account;
+  
+  beforeAll(async () => {
+    // Create test accounts
+    patientAccount = new Account();
+    doctorAccount = new Account();
+  });
+  
+  // Tests go here
+});
+```
+
+### Test Record Creation
+
+```typescript
+it('should create a medical record', async () => {
+  const inputs = prepareCreateRecordInputs(
+    'Test Record',
+    'This is a test medical record',
+    RecordType.GeneralHealth,
+    true
+  );
+  
+  expect(inputs.data_part1).toBeDefined();
+  expect(inputs.data_hash).toBeDefined();
+  expect(inputs.nonce).toBeDefined();
+  expect(inputs.record_type).toBe('1u8');
+  expect(inputs.make_discoverable).toBe('true');
+});
+```
+
+### Test Access Granting
+
+```typescript
+it('should grant access to doctor', async () => {
+  const recordId = 'test_record_id_field';
+  const doctorAddress = doctorAccount.address();
+  const durationBlocks = 5760;
+  const nonce = generateNonce();
+  
+  // Mock executeTransaction
+  const mockExecute = vi.fn().mockResolvedValue([
+    { record_id: recordId },
+    'access_token_12345field'
+  ]);
+  
+  const [record, token] = await mockExecute(
+    'salud_health_records.aleo',
+    'grant_access',
+    [recordId, doctorAddress, `${durationBlocks}u32`, nonce]
+  );
+  
+  expect(token).toBeDefined();
+  expect(record.record_id).toBe(recordId);
+});
+```
+
+### Test Access Verification
+
+```typescript
+it('should verify valid access', async () => {
+  const accessToken = 'valid_token_field';
+  const recordId = 'test_record_field';
+  const doctorAddress = doctorAccount.address();
+  
+  const mockExecute = vi.fn().mockResolvedValue(true);
+  
+  const result = await mockExecute(
+    'salud_health_records.aleo',
+    'verify_access',
+    [accessToken, doctorAddress, recordId]
+  );
+  
+  expect(result).toBe(true);
+});
+
+it('should reject invalid access', async () => {
+  const fakeToken = 'fake_token_field';
+  const recordId = 'test_record_field';
+  const doctorAddress = doctorAccount.address();
+  
+  const mockExecute = vi.fn().mockRejectedValue(
+    new Error('Access verification failed')
+  );
+  
+  await expect(
+    mockExecute(
+      'salud_health_records.aleo',
+      'verify_access',
+      [fakeToken, doctorAddress, recordId]
+    )
+  ).rejects.toThrow('Access verification failed');
+});
+```
+
+## Encryption Testing
+
+### Test Data Encoding
+
+```typescript
+import { 
+  stringToFieldElements, 
+  fieldElementsToString 
+} from '@/lib/aleo-utils';
+
+describe('Data Encoding', () => {
+  it('should encode and decode strings correctly', () => {
+    const testData = 'Blood pressure: 120/80, Weight: 165 lbs';
+    
+    const fields = stringToFieldElements(testData);
+    expect(fields.length).toBe(8);
+    
+    const decoded = fieldElementsToString(fields);
+    expect(decoded).toContain('Blood pressure: 120/80');
+  });
+  
+  it('should handle empty strings', () => {
+    const fields = stringToFieldElements('');
+    expect(fields.every(f => f === '0field')).toBe(true);
+  });
+  
+  it('should handle maximum data length', () => {
+    const maxData = 'x'.repeat(240); // 240 bytes max
+    const fields = stringToFieldElements(maxData);
+    expect(fields.length).toBe(8);
+    
+    const decoded = fieldElementsToString(fields);
+    expect(decoded.substring(0, 240)).toBe(maxData);
+  });
+});
+```
+
+### Test Encryption/Decryption
+
+```typescript
+import { 
+  encryptWithPublicKey, 
+  decryptWithPrivateKey 
+} from '@/lib/crypto-utils';
+
+describe('Encryption', () => {
+  it('should encrypt and decrypt medical data', () => {
+    const data = JSON.stringify({
+      t: 'Annual Checkup',
+      d: 'Blood pressure: 120/80'
+    });
+    
+    const publicKey = 'aleo1test...';
+    const privateKey = 'APrivateKey1test...';
+    
+    const encrypted = encryptWithPublicKey(data, publicKey);
+    expect(encrypted).toBeDefined();
+    expect(encrypted).not.toBe(data);
+    
+    const decrypted = decryptWithPrivateKey(encrypted, privateKey);
+    expect(decrypted).toBe(data);
+  });
+});
+```
+
+## End-to-End Testing
+
+### Test Patient Flow
+
+Test the complete patient journey:
+
+```typescript
+import { test, expect } from '@playwright/test';
+
+test.describe('Patient Flow', () => {
+  test('should create and share medical record', async ({ page }) => {
+    // 1. Connect wallet
+    await page.goto('http://localhost:3000');
+    await page.click('text=Connect Wallet');
+    
+    // 2. Create record
+    await page.click('text=Create New Record');
+    await page.fill('textarea', 'Blood pressure: 120/80');
+    await page.click('text=Save Record');
+    
+    // 3. Wait for confirmation
+    await expect(page.locator('text=Record created')).toBeVisible();
+    
+    // 4. Share record
+    await page.click('text=Share');
+    await expect(page.locator('canvas')).toBeVisible(); // QR code
+    
+    // 5. Verify QR code contains data
+    const qrCanvas = await page.locator('canvas').first();
+    expect(qrCanvas).toBeDefined();
+  });
+});
+```
+
+### Test Doctor Flow
+
+```typescript
+test.describe('Doctor Flow', () => {
+  test('should scan QR and view record', async ({ page }) => {
+    // 1. Navigate to doctor view
+    await page.goto('http://localhost:3000/doctor');
+    await page.click('text=Connect Wallet');
+    
+    // 2. Scan QR code (mock)
+    await page.click('text=Scan Patient QR Code');
+    
+    // 3. Simulate QR scan
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('qr-scanned', {
+        detail: {
+          token: 'test_token_field',
+          recordId: 'test_record_field'
+        }
+      }));
+    });
+    
+    // 4. Verify access
+    await expect(
+      page.locator('text=Access verified')
+    ).toBeVisible({ timeout: 10000 });
+    
+    // 5. View medical data
+    await expect(
+      page.locator('text=Blood pressure')
+    ).toBeVisible();
+  });
+  
+  test('should reject expired access', async ({ page }) => {
+    // Mock expired token
+    await page.goto('http://localhost:3000/doctor');
+    
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent('qr-scanned', {
+        detail: {
+          token: 'expired_token_field',
+          recordId: 'test_record_field'
+        }
+      }));
+    });
+    
+    await expect(
+      page.locator('text=Access expired')
+    ).toBeVisible();
+  });
+});
+```
+
+## Performance Testing
+
+### Transaction Speed
+
+Measure transaction execution time:
+
+```typescript
+test('should create record in under 30 seconds', async () => {
+  const startTime = Date.now();
+  
+  const inputs = prepareCreateRecordInputs(
+    'Performance Test',
+    'Testing transaction speed',
+    RecordType.GeneralHealth,
+    true
+  );
+  
+  await executeTransaction(
+    'salud_health_records.aleo',
+    'create_record',
+    inputsToArray(inputs)
+  );
+  
+  const duration = Date.now() - startTime;
+  expect(duration).toBeLessThan(30000); // 30 seconds
+});
+```
+
+### QR Code Generation
+
+```typescript
+test('should generate QR code in under 5 seconds', async () => {
+  const startTime = Date.now();
+  
+  const qrData = {
+    token: 'test_token_field',
+    recordId: 'test_record_field',
+  };
+  
+  await generateQRCode(JSON.stringify(qrData));
+  
+  const duration = Date.now() - startTime;
+  expect(duration).toBeLessThan(5000); // 5 seconds
+});
+```
+
+## Security Testing
+
+### Test Authorization
+
+```typescript
+test('should prevent unauthorized access', async () => {
+  const unauthorizedDoctor = new Account();
+  const validToken = 'valid_token_field';
+  const recordId = 'test_record_field';
+  
+  await expect(
+    executeTransaction(
+      'salud_health_records.aleo',
+      'verify_access',
+      [validToken, unauthorizedDoctor.address(), recordId]
+    )
+  ).rejects.toThrow();
+});
+```
+
+### Test Data Integrity
+
+```typescript
+import { hashData } from '@/lib/aleo-utils';
+
+test('should detect tampered data', () => {
+  const originalData = 'Blood pressure: 120/80';
+  const tamperedData = 'Blood pressure: 999/999';
+  
+  const originalHash = hashData(originalData);
+  const tamperedHash = hashData(tamperedData);
+  
+  expect(originalHash).not.toBe(tamperedHash);
+});
+```
+
+## Test Checklist
+
+Before deploying to production:
+
+<Accordion title="Functional Tests">
+  - [ ] Patient can create medical record
+  - [ ] QR code generates successfully
+  - [ ] Doctor can scan and verify access
+  - [ ] Access expires correctly
+  - [ ] Revocation works immediately
+  - [ ] Invalid tokens are rejected
+</Accordion>
+
+<Accordion title="Performance Tests">
+  - [ ] Record creation under 30 seconds
+  - [ ] QR generation under 5 seconds
+  - [ ] Access verification under 10 seconds
+  - [ ] No memory leaks
+  - [ ] Handles 100+ records efficiently
+</Accordion>
+
+<Accordion title="Security Tests">
+  - [ ] Unauthorized access prevented
+  - [ ] Data integrity verified
+  - [ ] Private keys never exposed
+  - [ ] No XSS vulnerabilities
+  - [ ] CSRF protection enabled
+</Accordion>
+
+<Accordion title="Cross-Platform Tests">
+  - [ ] Works on iPhone Safari
+  - [ ] Works on Android Chrome
+  - [ ] Works on desktop browsers
+  - [ ] QR scanner functions on mobile
+  - [ ] Wallet connection works
+</Accordion>
+
+## Continuous Integration
+
+Set up automated testing in CI/CD:
+
+```yaml
+# .github/workflows/test.yml
+name: Test Suite
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Install Leo
+        run: |
+          curl -sSf https://install.leo-lang.org/ | sh
+          
+      - name: Run Leo Tests
+        run: |
+          cd salud_health_records
+          leo test
+          
+      - name: Install Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          
+      - name: Install Dependencies
+        run: npm install
+        
+      - name: Run Integration Tests
+        run: npm run test
+        
+      - name: Run E2E Tests
+        run: npm run test:e2e
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/contract/architecture">
+    Understand the contract architecture
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/contract/deployment">
+    Deploy your tested contract to mainnet
+  </Card>
+</CardGroup>

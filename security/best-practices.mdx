@@ -1,0 +1,521 @@
+---
+title: Security Best Practices
+description: Guidelines for patients and healthcare providers to securely use Salud
+icon: shield-halved
+---
+
+Follow these security best practices to protect your medical data and maintain privacy when using Salud.
+
+## For Patients
+
+### Private Key Management
+
+Your private key is the master key to all your medical records. Protect it carefully.
+
+<Warning>
+**Critical**: If you lose your private key, you **permanently lose access** to your medical records. There is no password recovery option.
+</Warning>
+
+#### Storing Your Private Key
+
+<Steps>
+  <Step title="Use a password manager">
+    Store your private key in a reputable password manager:
+    - **Recommended**: 1Password, Bitwarden, LastPass
+    - Enable two-factor authentication on your password manager
+    - Use a strong master password (20+ characters)
+  </Step>
+  
+  <Step title="Create an encrypted backup">
+    Keep an offline backup in case of emergency:
+    - Write it down on paper and store in a safe
+    - Use an encrypted USB drive (BitLocker, VeraCrypt)
+    - Store in a bank safety deposit box for maximum security
+  </Step>
+  
+  <Step title="Never store in plaintext">
+    Avoid these dangerous practices:
+    - ❌ Text files on your computer
+    - ❌ Notes app on your phone
+    - ❌ Email to yourself
+    - ❌ Cloud storage (Dropbox, Google Drive) without encryption
+    - ❌ Screenshots or photos
+  </Step>
+</Steps>
+
+#### Private Key Security Rules
+
+<AccordionGroup>
+  <Accordion title="Never share your private key" icon="ban">
+    Your private key is like your medical records' master password:
+    
+    - ❌ Don't share with doctors (they get access tokens instead)
+    - ❌ Don't share with Salud support (we never ask for it)
+    - ❌ Don't enter it on untrusted websites
+    - ❌ Don't send via email, text, or messaging apps
+    
+    **If someone has your private key, they have full access to all your medical records.**
+  </Accordion>
+  
+  <Accordion title="Use different keys for different purposes" icon="keys">
+    Consider using separate Aleo accounts:
+    
+    - One account for medical records (your primary Salud key)
+    - One account for financial transactions
+    - One account for testing/development
+    
+    This limits damage if one key is compromised.
+  </Accordion>
+  
+  <Accordion title="Rotate keys periodically" icon="rotate">
+    For maximum security, consider rotating keys annually:
+    
+    1. Generate a new Aleo private key
+    2. Create new medical records under the new key
+    3. Grant yourself access from old records to new account
+    4. Gradually migrate to the new key
+    
+    <Warning>
+    Key rotation is advanced. Only do this if you fully understand the implications.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### QR Code Security
+
+QR codes contain access tokens - treat them with the same care as passwords.
+
+#### QR Code Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Generate Fresh" icon="qrcode">
+    Create a new QR code for each doctor visit - don't reuse old ones.
+  </Card>
+  
+  <Card title="Time-Limit" icon="clock">
+    Use the minimum necessary access duration:
+    - 1 hour for quick consultations
+    - 24 hours for ongoing appointments
+    - 7 days only for extended care
+  </Card>
+  
+  <Card title="Delete After Use" icon="trash">
+    Delete QR code screenshots after the doctor has scanned them.
+  </Card>
+  
+  <Card title="Never Post Publicly" icon="ban">
+    Don't share QR codes in public channels (social media, forums, etc.).
+  </Card>
+</CardGroup>
+
+#### What NOT to Do with QR Codes
+
+- ❌ **Don't text screenshots** - use in-person scanning only
+- ❌ **Don't email QR codes** - email is not secure
+- ❌ **Don't post on social media** - even in "private" groups
+- ❌ **Don't save to photo gallery** - delete after scanning
+- ❌ **Don't print and leave unattended** - someone could photograph it
+
+<Tip>
+**Best practice**: Display the QR code on your phone screen and let the doctor scan it directly. This minimizes the risk of interception.
+</Tip>
+
+### Device & Browser Security
+
+Salud runs in your browser, so browser security is critical.
+
+#### Secure Your Devices
+
+<Steps>
+  <Step title="Use trusted devices only">
+    Only access Salud from devices you control:
+    - ✅ Your personal computer
+    - ✅ Your personal smartphone
+    - ❌ Public computers (library, internet cafe)
+    - ❌ Shared work computers
+    - ❌ Friend's or family's devices (unless trusted)
+  </Step>
+  
+  <Step title="Keep software updated">
+    Ensure your system is fully patched:
+    - Enable automatic updates for OS
+    - Keep browser updated (Chrome, Firefox, Safari)
+    - Update browser extensions regularly
+  </Step>
+  
+  <Step title="Use antivirus/antimalware">
+    Protect against malware that could steal keys:
+    - Install reputable antivirus (Windows Defender, Malwarebytes)
+    - Run regular scans
+    - Avoid pirated software
+  </Step>
+  
+  <Step title="Secure your network">
+    Use secure network connections:
+    - ✅ Home WiFi with WPA2/WPA3 encryption
+    - ✅ Mobile data (cellular network)
+    - ⚠️ Public WiFi only with VPN
+    - ❌ Open/unencrypted WiFi networks
+  </Step>
+</Steps>
+
+#### Browser Security
+
+<AccordionGroup>
+  <Accordion title="Minimize browser extensions" icon="puzzle-piece">
+    Browser extensions can access page content and potentially steal private keys:
+    
+    - Only install essential extensions
+    - Review permissions before installing
+    - Remove unused extensions
+    - Be especially careful with wallet extensions
+    
+    **Note**: Leo Wallet and Shield Wallet are safe - they're designed for Aleo.
+  </Accordion>
+  
+  <Accordion title="Clear cache after sessions" icon="broom">
+    While Salud doesn't persist keys, clear browser data periodically:
+    
+    1. Go to browser settings
+    2. Clear browsing data
+    3. Select "Cached images and files"
+    4. Clear last 24 hours
+  </Accordion>
+  
+  <Accordion title="Use incognito/private mode" icon="mask">
+    For extra privacy, use incognito mode:
+    
+    - Session data is automatically cleared on close
+    - Extensions are disabled by default
+    - No browsing history saved
+    
+    <Warning>
+    Incognito mode doesn't protect you if your device is compromised. It only prevents local storage of browsing history.
+    </Warning>
+  </Accordion>
+</AccordionGroup>
+
+### Access Management
+
+Manage who has access to your records and for how long.
+
+#### Grant Access Wisely
+
+<Steps>
+  <Step title="Verify doctor address">
+    Double-check the Aleo address before granting access:
+    - Ask doctor to show their address on their device
+    - Compare character-by-character (even one wrong character = wrong person)
+    - Consider using QR code scanning for addresses to avoid typos
+  </Step>
+  
+  <Step title="Use minimum necessary duration">
+    Follow the principle of least privilege:
+    
+    | Scenario | Recommended Duration |
+    |----------|---------------------|
+    | Quick consultation | 1 hour (240 blocks) |
+    | Same-day appointment | 4 hours (960 blocks) |
+    | Follow-up within 24h | 24 hours (5,760 blocks) |
+    | Ongoing treatment (week) | 7 days (40,320 blocks) |
+    
+    <Tip>
+    You can always grant access again later. Start with shorter durations.
+    </Tip>
+  </Step>
+  
+  <Step title="Review access regularly">
+    Check your access grants periodically:
+    - View all active grants in the Salud dashboard
+    - Revoke any you no longer need
+    - Check for unfamiliar addresses (potential compromise)
+  </Step>
+  
+  <Step title="Revoke after appointment">
+    Manually revoke access after the doctor has finished:
+    - Don't wait for automatic expiration
+    - Reduces window of potential misuse
+    - Good security hygiene
+  </Step>
+</Steps>
+
+#### Red Flags to Watch For
+
+<Warning>
+Revoke access immediately if you notice:
+
+- Doctor asks for your private key (legitimate doctors never need it)
+- Unfamiliar addresses in your access grant list
+- Grants you don't remember creating
+- Suspicious activity on your Aleo account
+- Unexpected transactions
+
+If you suspect compromise, generate a new private key and migrate your records.
+</Warning>
+
+### Data Entry Best Practices
+
+How you enter medical data affects its security and usefulness.
+
+<AccordionGroup>
+  <Accordion title="Be accurate but concise" icon="file-lines">
+    Enter complete information without unnecessary details:
+    
+    ✅ **Good**: "Diagnosed with Type 2 diabetes, prescribed Metformin 500mg twice daily"
+    
+    ❌ **Too vague**: "Doctor visit"
+    
+    ❌ **Too detailed**: "Arrived at Dr. Smith's office at 123 Main St at 2pm, waited 15 minutes, discussed family history for 10 minutes..."
+  </Accordion>
+  
+  <Accordion title="Use appropriate record types" icon="tag">
+    Select the correct category for easier organization:
+    
+    1. General Health
+    2. Laboratory Results
+    3. Prescriptions
+    4. Imaging/Radiology
+    5. Vaccination Records
+    6. Surgical Records
+    7. Mental Health
+    8. Dental Records
+    9. Vision/Ophthalmology
+    10. Other/Miscellaneous
+  </Accordion>
+  
+  <Accordion title="Include dates and providers" icon="calendar">
+    Make records more useful by including:
+    
+    - Date of service
+    - Healthcare provider name
+    - Facility/clinic name
+    - Test results with reference ranges
+    - Medication dosages and frequencies
+  </Accordion>
+</AccordionGroup>
+
+## For Healthcare Providers
+
+### Verifying Access
+
+As a doctor, always verify access before requesting patient records.
+
+<Steps>
+  <Step title="Scan patient's QR code">
+    Have the patient display the QR code on their device and scan it:
+    - Use a secure QR scanner app
+    - Verify it contains an access token (not a phishing link)
+    - Confirm the record ID matches what the patient expects
+  </Step>
+  
+  <Step title="Verify access on-chain">
+    Use Salud's verification endpoint or the Aleo blockchain:
+    
+    ```javascript
+    await aleoSDK.execute('verify_access', [
+      access_token,
+      your_doctor_address,
+      record_id
+    ]);
+    ```
+    
+    This checks:
+    - Token exists and is valid
+    - Your address matches
+    - Access hasn't been revoked
+    - Access hasn't expired
+  </Step>
+  
+  <Step title="Request the encrypted record">
+    If verification succeeds, request the encrypted record from the patient:
+    - Patient provides the record data separately
+    - You decrypt using your credentials
+    - Record is visible for the duration of the grant
+  </Step>
+</Steps>
+
+<Info>
+**Important**: The access token only proves **permission** - it doesn't contain the medical data. Patients must separately share the encrypted record with you.
+</Info>
+
+### Doctor Account Security
+
+<CardGroup cols={2}>
+  <Card title="Use Professional Address" icon="user-doctor">
+    Create a dedicated Aleo address for medical practice - don't mix with personal use.
+  </Card>
+  
+  <Card title="Secure Private Key" icon="lock">
+    Store your doctor private key with the same security as patient keys (password manager, encrypted backup).
+  </Card>
+  
+  <Card title="Audit Access" icon="list-check">
+    Keep a log of which patients granted you access and when for compliance purposes.
+  </Card>
+  
+  <Card title="Respect Expiration" icon="clock">
+    Don't ask patients for extended access unnecessarily - respect time limits.
+  </Card>
+</CardGroup>
+
+### Compliance Considerations
+
+While Salud provides the technical infrastructure, you're responsible for compliance:
+
+<Warning>
+**HIPAA & Regulatory Compliance**
+
+If you're a covered entity under HIPAA:
+- Salud is not a Business Associate - it's a tool patients control
+- You're responsible for your own record-keeping and reporting
+- Document patient consent for using blockchain-based records
+- Ensure your use complies with local healthcare regulations
+- Maintain traditional EHR systems as required by law
+
+Consult with legal counsel before using Salud in a clinical setting.
+</Warning>
+
+## Emergency Scenarios
+
+### Lost Private Key
+
+If you lose your private key:
+
+<Steps>
+  <Step title="Check backups immediately">
+    Search for any backups you created:
+    - Password manager
+    - Encrypted USB drives
+    - Paper backups in safe
+    - Bank safety deposit box
+  </Step>
+  
+  <Step title="Accept permanent loss">
+    If no backup exists, your records are **permanently inaccessible**:
+    - No password recovery option
+    - No "forgot password" mechanism
+    - No support team can help
+    - Records remain encrypted on blockchain forever
+  </Step>
+  
+  <Step title="Create new account">
+    Generate a new Aleo private key and start fresh:
+    - Old records are lost
+    - Create new records going forward
+    - Re-enter important medical history manually
+  </Step>
+</Steps>
+
+<Tip>
+**Prevention is key**: Set up multiple backups **before** you lose your key. Once lost, recovery is impossible.
+</Tip>
+
+### Suspected Compromise
+
+If you suspect your private key has been compromised:
+
+<Steps>
+  <Step title="Revoke all access grants immediately">
+    Go to Salud dashboard and revoke all active grants:
+    - Prevents attacker from seeing what doctors can access
+    - Limits scope of breach
+  </Step>
+  
+  <Step title="Generate new private key">
+    Create a new Aleo account:
+    - Don't reuse the compromised key
+    - Store new key securely (password manager)
+  </Step>
+  
+  <Step title="Migrate records">
+    Create new records under the new account:
+    - Re-enter important medical data
+    - Leave old account dormant
+    - Don't grant access from old account
+  </Step>
+  
+  <Step title="Monitor the compromised account">
+    Watch for unauthorized activity:
+    - Check Aleo blockchain explorer for transactions
+    - Look for unexpected access grants
+    - Document any suspicious activity
+  </Step>
+</Steps>
+
+### QR Code Leaked
+
+If you accidentally shared a QR code publicly:
+
+1. **Revoke the access grant immediately** - the token becomes invalid
+2. **Generate a new QR code** with a fresh access token if still needed
+3. **Check access grant history** for any unauthorized access attempts
+4. **Delete the leaked QR code image** from wherever it was posted
+
+<Info>
+Revocation is **instant** on the blockchain. As soon as you revoke, the token in the QR code becomes useless.
+</Info>
+
+## Security Checklist
+
+Use this checklist to ensure you're following best practices:
+
+### Patient Checklist
+
+- [ ] Private key stored in password manager
+- [ ] Encrypted backup created and stored securely
+- [ ] Private key never shared with anyone
+- [ ] Using trusted device with updated software
+- [ ] Antivirus/antimalware installed and running
+- [ ] Browser extensions minimized
+- [ ] QR codes generated fresh for each doctor
+- [ ] Access durations set to minimum necessary
+- [ ] Access grants reviewed regularly
+- [ ] Unused grants revoked promptly
+- [ ] Doctor addresses verified before granting access
+- [ ] Secure network used (not public WiFi)
+
+### Doctor Checklist
+
+- [ ] Professional Aleo address created for medical use
+- [ ] Doctor private key secured (password manager)
+- [ ] Access verification performed before requesting records
+- [ ] Patient access tokens verified on-chain
+- [ ] Access expiration respected (no requests after expiry)
+- [ ] Patient data handled per HIPAA/local regulations
+- [ ] Compliance with healthcare privacy laws confirmed
+- [ ] Access log maintained for audit purposes
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Security Overview" icon="shield" href="/security/overview">
+    Learn about Salud's security architecture
+  </Card>
+  
+  <Card title="Privacy Model" icon="mask" href="/security/privacy-model">
+    Understand zero-knowledge proofs and encryption
+  </Card>
+  
+  <Card title="Aleo Documentation" icon="book" href="https://developer.aleo.org/">
+    Learn more about Aleo blockchain security
+  </Card>
+  
+  <Card title="Wallet Security Guide" icon="wallet" href="/guides/wallet-guide">
+    Best practices for managing Aleo wallets
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you have security concerns:
+
+<Warning>
+**Never share your private key with support**
+
+No legitimate support person will ever ask for your private key. If someone asks for it, it's a scam.
+</Warning>
+
+- **General questions**: Check the documentation first
+- **Technical issues**: Create a GitHub issue
+- **Security vulnerabilities**: Report privately to the development team
+- **Lost private key**: No recovery possible - ensure you have backups

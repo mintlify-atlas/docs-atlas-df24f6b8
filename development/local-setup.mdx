@@ -1,0 +1,518 @@
+---
+title: 'Local Development Setup'
+description: 'Set up your local development environment for Salud Health Records'
+icon: 'laptop-code'
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+### Required Software
+
+| Software | Version | Purpose |
+|----------|---------|----------|
+| **Node.js** | 18+ | Frontend and backend runtime |
+| **npm** or **yarn** | Latest | Package management |
+| **Git** | Latest | Version control |
+| **Leo CLI** | Latest | Aleo smart contract development |
+
+### Optional but Recommended
+
+- **VS Code** with TypeScript extension
+- **Aleo Wallet** (Leo Wallet or Shield Wallet)
+- **Postman** or **curl** for API testing
+
+## Installation Steps
+
+<Steps>
+  <Step title="Install Node.js">
+    Download and install Node.js 18+ from [nodejs.org](https://nodejs.org)
+    
+    ```bash
+    # Verify installation
+    node --version  # Should be v18 or higher
+    npm --version
+    ```
+  </Step>
+
+  <Step title="Install Leo CLI (for contract development)">
+    Install the Leo programming language CLI:
+    
+    ```bash
+    curl -sSf https://install.leo-lang.org/ | sh
+    
+    # Verify installation
+    leo --version
+    ```
+    
+    <Note>
+    Only required if you plan to work on smart contracts. Frontend/backend developers can skip this.
+    </Note>
+  </Step>
+
+  <Step title="Clone the Repository">
+    ```bash
+    git clone <repository-url>
+    cd Salud
+    ```
+    
+    **Project Structure:**
+    ```
+    Salud/
+    ├── backend/                 # Node.js API server
+    ├── frontend/                # React + Vite frontend
+    ├── salud_health_records/    # Aleo Leo contract
+    └── README.md
+    ```
+  </Step>
+
+  <Step title="Install Backend Dependencies">
+    ```bash
+    cd backend
+    npm install
+    ```
+    
+    **Key Dependencies:**
+    - `@provablehq/sdk` - Aleo blockchain SDK
+    - `express` - Web server framework
+    - `cors` - Cross-origin resource sharing
+    - `dotenv` - Environment configuration
+  </Step>
+
+  <Step title="Install Frontend Dependencies">
+    ```bash
+    cd ../frontend
+    npm install
+    ```
+    
+    **Key Dependencies:**
+    - `react` & `react-dom` - UI framework
+    - `@provablehq/aleo-wallet-adaptor-*` - Wallet integration
+    - `vite` - Build tool and dev server
+    - `typescript` - Type safety
+    - `tailwindcss` - Styling
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Create environment files for both frontend and backend.
+    
+    **Backend** (`backend/.env`):
+    ```env
+    PORT=3001
+    ALEO_API_URL=https://api.explorer.provable.com/v1
+    PROGRAM_ID=salud_health_records_v2.aleo
+    DEMO_MODE=false
+    ```
+    
+    **Frontend** (`frontend/.env`):
+    ```env
+    VITE_API_URL=http://localhost:3001/api
+    ```
+  </Step>
+</Steps>
+
+## Development Workflows
+
+### Frontend Development
+
+<CodeGroup>
+```bash Development Server
+cd frontend
+npm run dev
+
+# Server starts at http://localhost:5173
+# Hot Module Replacement (HMR) enabled
+# Changes reflect instantly
+```
+
+```bash Build for Production
+cd frontend
+npm run build
+
+# Creates optimized build in dist/
+# TypeScript compilation + Vite bundling
+```
+
+```bash Lint Code
+cd frontend
+npm run lint
+
+# Checks TypeScript and React code
+# Must pass before committing
+```
+
+```bash Preview Production Build
+cd frontend
+npm run preview
+
+# Serves the production build locally
+# Test before deployment
+```
+</CodeGroup>
+
+**Development Tips:**
+
+- **HMR**: Changes auto-reload without full page refresh
+- **Port**: Default is 5173, configurable in `vite.config.ts`
+- **TypeScript**: Errors show in terminal and browser
+- **Network Access**: Use `--host` flag for mobile testing
+
+### Backend Development
+
+<CodeGroup>
+```bash Development Server
+cd backend
+npm run dev
+
+# Uses nodemon for auto-restart on changes
+# Server runs on http://localhost:3001
+```
+
+```bash Production Server
+cd backend
+npm start
+
+# Standard Node.js server
+# No auto-restart, for production use
+```
+
+```bash Test Endpoints
+# Health check
+curl http://localhost:3001/api/health
+
+# Generate wallet
+curl -X POST http://localhost:3001/api/wallet/generate
+
+# Connect wallet
+curl -X POST http://localhost:3001/api/wallet/connect \
+  -H "Content-Type: application/json" \
+  -d '{"privateKey": "APrivateKey1..."}'
+```
+</CodeGroup>
+
+**Backend Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check |
+| POST | `/api/wallet/connect` | Connect with private key |
+| POST | `/api/wallet/generate` | Generate new account |
+| GET | `/api/wallet/balance/:sessionId` | Get wallet balance |
+| POST | `/api/records/create` | Create medical record |
+| GET | `/api/records/fetch/:sessionId` | Fetch user records |
+| POST | `/api/access/grant` | Grant doctor access |
+
+### Smart Contract Development
+
+<CodeGroup>
+```bash Build Contract
+cd salud_health_records
+leo build
+
+# Compiles Leo to Aleo instructions
+# Output in build/ directory
+```
+
+```bash Run Tests
+cd salud_health_records
+leo test
+
+# Runs all tests in tests/ directory
+# 17 tests covering core functionality
+```
+
+```bash Deploy to Testnet
+cd salud_health_records
+leo deploy --network testnet
+
+# Requires Aleo account with credits
+# Deploys to Aleo testnet
+```
+
+```bash Execute Transition
+leo execute create_record \
+  1field 2field 3field 4field \
+  1u8 100field 42field false
+
+# Executes a transition locally
+# Useful for testing
+```
+</CodeGroup>
+
+**Contract Files:**
+
+```
+salud_health_records/
+├── program.json              # Project configuration
+├── src/
+│   └── main.leo              # Main contract (~470 lines)
+├── tests/
+│   └── test_salud_health_records.leo
+├── build/                    # Compiled output
+│   ├── main.aleo
+│   └── program.json
+└── ARCHITECTURE.md           # Contract documentation
+```
+
+## Full Stack Development
+
+To run the complete application:
+
+<Steps>
+  <Step title="Start Backend">
+    ```bash
+    # Terminal 1
+    cd backend
+    npm run dev
+    ```
+    
+    Wait for: `Server running on port 3001`
+  </Step>
+
+  <Step title="Start Frontend">
+    ```bash
+    # Terminal 2
+    cd frontend
+    npm run dev
+    ```
+    
+    Wait for: `Local: http://localhost:5173`
+  </Step>
+
+  <Step title="Access Application">
+    Open your browser to `http://localhost:5173`
+    
+    The frontend will communicate with the backend at `localhost:3001`
+  </Step>
+</Steps>
+
+## Development with Demo Mode
+
+For testing without blockchain transactions:
+
+```env
+# backend/.env
+DEMO_MODE=true
+```
+
+**Demo Mode Features:**
+
+✅ **Works:**
+- All UI features function normally
+- Records stored in localStorage
+- Access grants simulated
+- QR code generation/scanning
+- Wallet connection flow
+
+⚠️ **Limitations:**
+- No real blockchain transactions
+- Records don't persist across devices
+- No actual on-chain verification
+- Perfect for UI/UX development
+
+## Common Development Tasks
+
+### Adding a New Frontend Component
+
+```bash
+# Create component file
+touch frontend/src/components/NewComponent.tsx
+```
+
+```tsx
+// NewComponent.tsx
+import React from 'react';
+
+interface NewComponentProps {
+  title: string;
+}
+
+export const NewComponent: React.FC<NewComponentProps> = ({ title }) => {
+  return (
+    <div className="new-component">
+      <h2>{title}</h2>
+    </div>
+  );
+};
+```
+
+### Adding a New Backend Endpoint
+
+```javascript
+// backend/server.js
+app.post('/api/new-endpoint', async (req, res) => {
+  try {
+    const { param } = req.body;
+    
+    // Your logic here
+    
+    res.json({ success: true, data: result });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+```
+
+### Adding a New Contract Transition
+
+```leo
+// salud_health_records/src/main.leo
+transition new_transition(
+    param1: field,
+    param2: u8
+) -> field {
+    // Validate inputs
+    assert(param2 > 0u8);
+    
+    // Your logic
+    
+    return result;
+}
+```
+
+## Troubleshooting
+
+### Backend Issues
+
+<AccordionGroup>
+  <Accordion title="Cannot connect to backend">
+    **Symptoms:** Frontend shows connection errors
+    
+    **Solutions:**
+    - Ensure backend is running on port 3001
+    - Check `VITE_API_URL` in frontend `.env`
+    - Verify no firewall blocking port 3001
+    - Check backend console for startup errors
+  </Accordion>
+
+  <Accordion title="Invalid private key error">
+    **Symptoms:** Wallet connection fails
+    
+    **Solutions:**
+    - Private key must start with `APrivateKey1...`
+    - Must be exactly 59 characters
+    - Use "Generate New" to create test account
+    - Export key from Leo/Shield Wallet if using existing account
+  </Accordion>
+
+  <Accordion title="Module not found errors">
+    **Symptoms:** Import errors in backend
+    
+    **Solutions:**
+    ```bash
+    cd backend
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Frontend Issues
+
+<AccordionGroup>
+  <Accordion title="TypeScript errors">
+    **Symptoms:** Type errors in terminal/browser
+    
+    **Solutions:**
+    - Check `tsconfig.json` configuration
+    - Ensure all dependencies are installed
+    - Restart TypeScript server in VS Code
+    - Run `npm run build` to see all errors
+  </Accordion>
+
+  <Accordion title="Vite build fails">
+    **Symptoms:** Build errors during `npm run build`
+    
+    **Solutions:**
+    ```bash
+    cd frontend
+    rm -rf node_modules package-lock.json dist
+    npm install
+    npm run build
+    ```
+  </Accordion>
+
+  <Accordion title="Wallet adapter errors">
+    **Symptoms:** Wallet connection issues
+    
+    **Solutions:**
+    - Clear browser cache and localStorage
+    - Check wallet extension is installed
+    - Verify wallet adapter dependencies versions match
+    - Try different wallet (Leo vs Shield)
+  </Accordion>
+</AccordionGroup>
+
+### Contract Issues
+
+<AccordionGroup>
+  <Accordion title="Leo build fails">
+    **Symptoms:** Compilation errors
+    
+    **Solutions:**
+    - Check Leo version: `leo --version`
+    - Ensure syntax matches Leo 2.x
+    - Run `leo clean` then `leo build`
+    - Check for syntax errors in `main.leo`
+  </Accordion>
+
+  <Accordion title="Tests failing">
+    **Symptoms:** `leo test` shows failures
+    
+    **Solutions:**
+    - Read test output carefully
+    - Check test assertions in `tests/` directory
+    - Verify contract logic matches test expectations
+    - Run individual tests for debugging
+  </Accordion>
+</AccordionGroup>
+
+## Development Tools
+
+### Recommended VS Code Extensions
+
+- **TypeScript**: Built-in, enable suggestions
+- **ESLint**: JavaScript/TypeScript linting
+- **Tailwind CSS IntelliSense**: CSS class autocomplete
+- **Leo**: Syntax highlighting for Leo files (if available)
+
+### Browser DevTools
+
+**For Frontend Debugging:**
+
+- **Console**: View errors and logs
+- **Network**: Monitor API calls
+- **Application**: Inspect localStorage (demo mode)
+- **React DevTools**: Component inspection
+
+### API Testing Tools
+
+**Test Backend Endpoints:**
+
+- **curl**: Command-line requests
+- **Postman**: GUI for API testing
+- **Thunder Client**: VS Code extension
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Guide" icon="flask" href="/development/testing">
+    Learn how to run tests and ensure code quality
+  </Card>
+  
+  <Card title="Contributing" icon="code-pull-request" href="/development/contributing">
+    Submit your first contribution
+  </Card>
+  
+  <Card title="Architecture" icon="diagram-project" href="/core-concepts/architecture">
+    Understand the system architecture
+  </Card>
+  
+  <Card title="API Reference" icon="book" href="/api-reference/overview">
+    Explore the API documentation
+  </Card>
+</CardGroup>

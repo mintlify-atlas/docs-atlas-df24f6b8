@@ -1,0 +1,288 @@
+---
+title: Medical Records
+description: Create, store, and manage encrypted medical records on Aleo blockchain
+icon: file-text
+---
+
+## Overview
+
+Salud enables you to create and manage encrypted medical records stored on the Aleo blockchain. Each record is cryptographically secured, ensuring only you can view and share your health data.
+
+<Info>
+  All medical records are encrypted before leaving your browser and stored as private records on the Aleo blockchain.
+</Info>
+
+## How Medical Records Work
+
+Medical records in Salud are built on Aleo's privacy-preserving blockchain technology. Here's what makes them secure:
+
+<CardGroup cols={2}>
+  <Card title="Private by Default" icon="lock">
+    Records are stored as private Aleo records - only you can decrypt and view them
+  </Card>
+  
+  <Card title="Client-Side Encryption" icon="shield">
+    Data is encrypted in your browser before reaching the blockchain
+  </Card>
+  
+  <Card title="Permanent Storage" icon="database">
+    Records are permanently stored on Aleo blockchain with cryptographic integrity
+  </Card>
+  
+  <Card title="Zero-Knowledge" icon="eye-off">
+    Even the backend server cannot read your medical data
+  </Card>
+</CardGroup>
+
+## Record Structure
+
+Each medical record contains the following information:
+
+```typescript
+interface MedicalRecord {
+  owner: address        // Your Aleo wallet address
+  record_id: field      // Unique identifier (hash-based)
+  data_hash: field      // Integrity verification hash
+  data_part1-4: field   // Encrypted data segments (~126 bytes total)
+  record_type: u8       // Category (1-10)
+  created_at: u32       // Block height timestamp
+  version: u8           // Schema version
+}
+```
+
+<Note>
+  Each record can store approximately 126 bytes of encrypted data. For larger records, data is automatically chunked across multiple record parts.
+</Note>
+
+## Record Types
+
+Salud supports 10 different medical record categories:
+
+<AccordionGroup>
+  <Accordion title="General Health (Type 1)">
+    General health checkups and assessments
+  </Accordion>
+  
+  <Accordion title="Laboratory Results (Type 2)">
+    Blood tests, urine analysis, and other lab work
+  </Accordion>
+  
+  <Accordion title="Prescription (Type 3)">
+    Medication prescriptions and dosage information
+  </Accordion>
+  
+  <Accordion title="Imaging (Type 4)">
+    X-rays, MRI, CT scans, and ultrasounds
+  </Accordion>
+  
+  <Accordion title="Vaccination (Type 5)">
+    Immunization records and vaccine history
+  </Accordion>
+  
+  <Accordion title="Surgical (Type 6)">
+    Surgery records and post-operative notes
+  </Accordion>
+  
+  <Accordion title="Mental Health (Type 7)">
+    Psychological assessments and therapy notes
+  </Accordion>
+  
+  <Accordion title="Dental (Type 8)">
+    Dental examinations and treatments
+  </Accordion>
+  
+  <Accordion title="Vision (Type 9)">
+    Eye exams and vision prescriptions
+  </Accordion>
+  
+  <Accordion title="Other (Type 10)">
+    Other medical records not covered by specific categories
+  </Accordion>
+</AccordionGroup>
+
+## Creating a Medical Record
+
+### From the UI
+
+1. Navigate to the **My Records** page
+2. Click the **New Record** button
+3. Fill in the record details:
+   - **Title**: Brief description (e.g., "Annual Physical")
+   - **Description**: Detailed medical information
+   - **Record Type**: Select from 10 categories
+4. Click **Create Record**
+5. Your record is encrypted and submitted to the blockchain
+
+<Warning>
+  Record creation requires a small amount of Aleo credits for blockchain transaction fees. Make sure your wallet has sufficient balance.
+</Warning>
+
+### Using the Contract
+
+Records are created using the `create_record` transition:
+
+```leo
+async transition create_record(
+    data_part1: field,
+    data_part2: field,
+    data_part3: field,
+    data_part4: field,
+    record_type: u8,
+    data_hash: field,
+    nonce: field,
+    make_discoverable: bool
+) -> (MedicalRecord, Future)
+```
+
+**Parameters:**
+- `data_part1-4`: Pre-encrypted medical data (client-side encryption)
+- `record_type`: Category of record (1-10)
+- `data_hash`: Hash of original data for integrity verification
+- `nonce`: Client-provided randomness for unique ID generation
+- `make_discoverable`: Whether to add to public index (optional)
+
+## Viewing Your Records
+
+All your medical records are automatically synchronized from the blockchain when you connect your wallet.
+
+### Record List Features
+
+<CardGroup cols={2}>
+  <Card title="Search" icon="search">
+    Search records by title or description
+  </Card>
+  
+  <Card title="Filter by Type" icon="filter">
+    Filter records by medical category
+  </Card>
+  
+  <Card title="Grid or List View" icon="layout-grid">
+    Toggle between card grid or list layout
+  </Card>
+  
+  <Card title="Auto-Sync" icon="refresh-cw">
+    Records sync automatically from blockchain
+  </Card>
+</CardGroup>
+
+### Implementation Example
+
+Here's how records are fetched and displayed:
+
+```typescript
+// From RecordsPage.tsx:56-69
+if (!user?.isConnected) {
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="My Records"
+        description="Connect your wallet to view your medical records"
+      />
+      <EmptyState
+        icon={<Wallet size={48} className="text-slate-300" />}
+        title="Wallet Not Connected"
+        description="Please connect your Aleo wallet to access your encrypted medical records securely."
+      />
+    </div>
+  );
+}
+```
+
+## Record Synchronization
+
+Records are fetched from the blockchain and synchronized locally:
+
+1. **On Wallet Connect**: All records are fetched from the blockchain
+2. **Background Sync**: Records automatically update every few minutes
+3. **Manual Sync**: Click the sync button to refresh immediately
+4. **Local Cache**: Records are cached in browser for faster access
+
+```typescript
+// From RecordsPage.tsx:49-53
+useEffect(() => {
+  if (user?.address && canSync) {
+    sync().catch(() => {});
+  }
+}, [user?.address, canSync, sync]);
+```
+
+<Info>
+  Record synchronization may take 10-15 seconds as data is fetched from the Aleo blockchain.
+</Info>
+
+## Data Encryption
+
+Medical records use multiple layers of encryption:
+
+### Client-Side Encryption
+
+1. **Before Blockchain**: Data is encrypted in your browser using your private key
+2. **Field Elements**: Encrypted data is split into Aleo field elements
+3. **Integrity Hash**: A hash is computed for data integrity verification
+
+### Privacy Model
+
+| Data Type | Visibility | Purpose |
+|-----------|------------|----------|
+| Medical Records | Private (record) | Only patient can view encrypted health data |
+| Record Metadata | Optional public | Enable discovery if user opts in |
+| Data Hash | On-chain | Verify data integrity |
+
+<Warning>
+  Never share your private key. Anyone with your private key can decrypt all your medical records.
+</Warning>
+
+## Best Practices
+
+<CardGroup cols={1}>
+  <Card title="Be Specific with Titles" icon="heading">
+    Use clear, descriptive titles like "2024 Annual Physical" instead of "Checkup"
+  </Card>
+  
+  <Card title="Include Relevant Details" icon="file-text">
+    Add important information like dates, doctor names, and key findings
+  </Card>
+  
+  <Card title="Choose Correct Type" icon="tag">
+    Select the appropriate record category for easier filtering later
+  </Card>
+  
+  <Card title="Regular Backups" icon="save">
+    While records are on blockchain, keep copies of important documents
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Records not appearing">
+    - Wait 10-15 seconds for blockchain sync to complete
+    - Click the manual sync button
+    - Check browser console for sync status
+    - Ensure you're connected with the correct wallet
+  </Accordion>
+  
+  <Accordion title="Failed to create record">
+    - Check that you have sufficient Aleo credits in your wallet
+    - Verify the backend server is running and accessible
+    - Try enabling Demo Mode for testing without blockchain
+  </Accordion>
+  
+  <Accordion title="Cannot decrypt record">
+    - Ensure you're using the same private key that created the record
+    - Check that the record wasn't corrupted during storage
+    - Verify your wallet connection is active
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Share Records" icon="share-2" href="/features/access-sharing">
+    Learn how to share records with doctors
+  </Card>
+  
+  <Card title="QR Code Sharing" icon="qr-code" href="/features/qr-code-sharing">
+    Generate QR codes for quick access
+  </Card>
+</CardGroup>

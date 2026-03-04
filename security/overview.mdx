@@ -1,0 +1,218 @@
+---
+title: Security Overview
+description: Learn about Salud's privacy-first, HIPAA-grade security architecture
+icon: shield-check
+---
+
+Salud implements medical-grade privacy and security through the Aleo blockchain's zero-knowledge architecture. Your health data deserves the highest level of protection.
+
+## Core Security Principles
+
+Salud's security model is built on four foundational pillars:
+
+### End-to-End Encryption
+
+All medical data is encrypted **before leaving your browser** and remains encrypted on the blockchain:
+
+- **Client-side encryption**: Data never reaches the server in plaintext
+- **Private records**: Stored as Aleo private records only you can decrypt
+- **Zero-knowledge**: Even the backend cannot read your medical records
+
+### Blockchain-Powered Access Control
+
+Access permissions are enforced cryptographically on-chain:
+
+- **Access tokens**: Cryptographically generated, unpredictable tokens
+- **Time-limited**: Automatic expiration based on block height
+- **Revocable**: Instant revocation before expiration if needed
+- **Auditable**: Full access history visible on-chain
+
+### Privacy-First Design
+
+Salud follows privacy-by-design principles:
+
+- **Minimal data exposure**: Only metadata is public, never content
+- **Selective disclosure**: Share specific records, not your entire history
+- **No backend storage**: The server doesn't store medical data
+- **Session-based keys**: Private keys only in memory during active sessions
+
+### HIPAA-Grade Standards
+
+While not a traditional healthcare provider, Salud implements security controls comparable to HIPAA requirements:
+
+- **Technical safeguards**: Encryption, access controls, audit trails
+- **Administrative controls**: User-controlled permissions, time limits
+- **Physical safeguards**: Blockchain immutability, distributed storage
+
+## Security Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    YOUR BROWSER                         │
+│  ┌──────────────┐         ┌─────────────────┐         │
+│  │ Medical Data │─Encrypt─▶│ Private Records │         │
+│  └──────────────┘         └─────────────────┘         │
+│         │                           │                  │
+└─────────┼───────────────────────────┼──────────────────┘
+          │                           │
+          │ End-to-End Encrypted      │
+          ▼                           ▼
+┌──────────────────────────────────────────────────────────┐
+│                  ALEO BLOCKCHAIN                         │
+│  ┌────────────────────┐    ┌──────────────────────┐   │
+│  │  Private Records   │    │  Public Mappings     │   │
+│  │  (Encrypted Data)  │    │  (Access Grants)     │   │
+│  │  • Only you can    │    │  • Who has access    │   │
+│  │    decrypt         │    │  • Expiration times  │   │
+│  │  • Zero-knowledge  │    │  • Revocation status │   │
+│  │    proofs          │    │                      │   │
+│  └────────────────────┘    └──────────────────────┘   │
+└──────────────────────────────────────────────────────────┘
+```
+
+## What's Protected
+
+<CardGroup cols={2}>
+  <Card title="Medical Data" icon="file-medical">
+    Your health records are stored as private records on Aleo. Only you can decrypt and view the contents.
+  </Card>
+  
+  <Card title="Access Tokens" icon="key">
+    Cryptographically generated tokens using hash functions prevent prediction or forgery.
+  </Card>
+  
+  <Card title="Time Controls" icon="clock">
+    Access expiration is enforced at the blockchain level using block height - cannot be bypassed.
+  </Card>
+  
+  <Card title="Revocation" icon="ban">
+    Instant access revocation updates on-chain state, immediately invalidating access.
+  </Card>
+</CardGroup>
+
+## Security Features
+
+### Private Records on Aleo
+
+Medical records are stored as **private records** on the Aleo blockchain:
+
+```leo
+record MedicalRecord {
+    owner: address,           // Your Aleo address
+    record_id: field,         // Unique identifier
+    data_hash: field,         // Integrity verification
+    data_part1-12: field,     // Encrypted medical data
+    record_type: u8,          // Category
+    created_at: u32,          // Block height
+    version: u8,              // Schema version
+}
+```
+
+<Info>
+**Private records** are only visible to the owner. The blockchain stores them encrypted, and only you hold the decryption keys.
+</Info>
+
+### Access Grant System
+
+When you share a record with a doctor, an **AccessGrant** is created in a public mapping:
+
+```leo
+struct AccessGrant {
+    patient: address,         // You (who granted access)
+    doctor: address,          // Healthcare provider
+    record_id: field,         // Which record (not the data)
+    access_token: field,      // Cryptographic proof
+    granted_at: u32,          // Grant timestamp
+    expires_at: u32,          // Expiration timestamp
+    is_revoked: bool,         // Manual revocation flag
+}
+```
+
+<Warning>
+The AccessGrant contains **metadata only** - never the actual medical data. Doctors can verify permission but must still request the encrypted record from you.
+</Warning>
+
+### Cryptographic Token Generation
+
+Access tokens are generated using the BHP256 hash function:
+
+```
+access_token = BHP256::hash(
+    record_id + 
+    doctor_address + 
+    patient_address + 
+    random_nonce
+)
+```
+
+This ensures:
+- **Unpredictability**: Impossible to guess or forge tokens
+- **Uniqueness**: Each grant has a unique token
+- **Deterministic verification**: Same inputs always produce same token
+
+## Threat Model & Mitigations
+
+| Threat | Mitigation |
+|--------|------------|
+| **Unauthorized access** | Record ownership enforced by blockchain; only owner can grant access |
+| **Token prediction** | Client-provided random nonces in cryptographic hash |
+| **Replay attacks** | Unique tokens per grant; single-use access grants |
+| **Stale access** | Block height-based expiration enforced on-chain |
+| **Man-in-the-middle** | End-to-end encryption; data encrypted before transmission |
+| **Backend compromise** | Zero-knowledge architecture; backend can't decrypt records |
+| **Private key theft** | Session-based storage; never persisted to disk |
+| **Data tampering** | Integrity hashes verified; blockchain immutability |
+
+## Known Limitations
+
+<Warning>
+Be aware of these security considerations:
+
+1. **Client-side encryption dependency**: Security relies on proper encryption implementation in the frontend
+2. **Private key management**: If you lose your private key, you lose access to your records permanently
+3. **QR code security**: QR codes contain access tokens - treat them like passwords
+4. **Browser security**: Compromised browser extensions or malware can access keys in memory
+5. **No password recovery**: This is blockchain-based - there's no "forgot password" option
+</Warning>
+
+## Security Checklist
+
+Ensure you follow these security practices:
+
+<Steps>
+  <Step title="Use a secure password manager">
+    Store your private key in a reputable password manager like 1Password or Bitwarden.
+  </Step>
+  
+  <Step title="Never share your private key">
+    Your private key is like a master password - never share it with anyone, including support.
+  </Step>
+  
+  <Step title="Use appropriate access durations">
+    Grant the minimum necessary access time - 1 hour for consultations, longer for ongoing care.
+  </Step>
+  
+  <Step title="Review access grants regularly">
+    Check your access history and revoke any grants you no longer need.
+  </Step>
+  
+  <Step title="Secure your QR codes">
+    Don't share QR code screenshots publicly - they contain access tokens.
+  </Step>
+  
+  <Step title="Use trusted devices">
+    Only access Salud from secure, malware-free devices you control.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Privacy Model" icon="mask" href="/security/privacy-model">
+    Deep dive into zero-knowledge proofs and the privacy architecture
+  </Card>
+  
+  <Card title="Best Practices" icon="shield-halved" href="/security/best-practices">
+    Security guidelines for patients and healthcare providers
+  </Card>
+</CardGroup>

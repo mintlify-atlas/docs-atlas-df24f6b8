@@ -1,0 +1,343 @@
+---
+title: Patient Guide
+description: Complete guide for patients using Salud Health to manage their medical records on Aleo blockchain
+icon: user
+---
+
+## Overview
+
+As a patient, Salud Health empowers you to take control of your medical records with complete privacy and security. All your health data is encrypted and stored on the Aleo blockchain, ensuring that only you can access and share your information.
+
+## Getting Started
+
+### Connecting Your Wallet
+
+Before you can create or view records, you need to connect your Aleo wallet:
+
+<Steps>
+  <Step title="Navigate to Salud Health">
+    Open the Salud Health application in your web browser.
+  </Step>
+  
+  <Step title="Enter Your Private Key">
+    On the wallet connect screen, paste your Aleo private key (starts with `APrivateKey1...`).
+    
+    <Note>
+      Your private key never leaves your browser - it's only used to establish a secure session with the backend.
+    </Note>
+  </Step>
+  
+  <Step title="Connect">
+    Click the "Connect" button to establish your session. The app will verify your credentials and load your records from the blockchain.
+  </Step>
+</Steps>
+
+### Understanding Your Dashboard
+
+Once connected, you'll see your dashboard with:
+
+- **Medical Records Count**: Total number of encrypted health records you've created
+- **Active Shares**: Number of records currently shared with healthcare providers
+- **Quick Actions**: Shortcuts to create new records, share with doctors, and view access history
+- **Recent Records**: Your most recently created or updated medical records
+
+## Creating Medical Records
+
+Salud Health allows you to create encrypted medical records that are permanently stored on the Aleo blockchain.
+
+<Steps>
+  <Step title="Click 'New Record'">
+    From your dashboard or the Records page, click the "New Record" button.
+  </Step>
+  
+  <Step title="Fill in Record Details">
+    Complete the form with your medical information:
+    
+    - **Title**: A descriptive name for your record (e.g., "Annual Physical 2026")
+    - **Description**: Detailed information about the medical event or test
+    - **Record Type**: Select from 10 categories:
+      - General Health
+      - Laboratory Results
+      - Prescription
+      - Imaging (X-rays, MRI, CT scans)
+      - Vaccination
+      - Surgical
+      - Mental Health
+      - Dental
+      - Vision
+      - Other
+    - **Medical Data**: Enter the detailed medical information (this will be encrypted)
+  </Step>
+  
+  <Step title="Submit">
+    Click "Create Record" to encrypt and store your data on the Aleo blockchain.
+    
+    <Warning>
+      Record creation may take 10-15 seconds as the transaction is processed on the blockchain.
+    </Warning>
+  </Step>
+</Steps>
+
+### Record Types Explained
+
+<Accordion title="General Health">
+  For routine checkups, health assessments, and general wellness visits. Includes vital signs, physical examinations, and preventive care.
+</Accordion>
+
+<Accordion title="Laboratory Results">
+  Blood tests, urine analysis, genetic testing, and other laboratory work. Store test results with reference ranges and doctor's notes.
+</Accordion>
+
+<Accordion title="Prescription">
+  Medication prescriptions including drug names, dosages, frequency, and duration. Track your medication history securely.
+</Accordion>
+
+<Accordion title="Imaging">
+  X-rays, MRI scans, CT scans, ultrasounds, and other medical imaging. Store reports and findings from radiologists.
+</Accordion>
+
+<Accordion title="Vaccination">
+  Immunization records, vaccine dates, lot numbers, and vaccination history. Essential for travel and school requirements.
+</Accordion>
+
+## Managing Your Records
+
+### Viewing Records
+
+<Steps>
+  <Step title="Navigate to Records Page">
+    Click "Records" in the main navigation to see all your medical records.
+  </Step>
+  
+  <Step title="Filter and Search">
+    - Use the search bar to find specific records by title or description
+    - Filter by record type using the category pills
+    - Switch between grid and list view using the toggle buttons
+  </Step>
+  
+  <Step title="View Details">
+    Click on any record card to view its full details, including encrypted data, creation date, and sharing history.
+  </Step>
+</Steps>
+
+### Syncing with Blockchain
+
+Your records are automatically synced from the Aleo blockchain when you connect. You can manually trigger a sync:
+
+- Click the **"Sync" button** on the Records page or Dashboard
+- Wait for the blockchain sync to complete (shown by the spinning icon)
+- New or updated records will appear once the sync finishes
+
+<Note>
+  The first sync after connecting may take 10-15 seconds as the app fetches all your records from the blockchain.
+</Note>
+
+## Sharing Records with Doctors
+
+One of Salud Health's most powerful features is the ability to securely share medical records with healthcare providers using time-limited access.
+
+### How Record Sharing Works
+
+<Steps>
+  <Step title="Select a Record">
+    From your Records page or Dashboard, click on the record you want to share, then click the "Share" button.
+  </Step>
+  
+  <Step title="Configure Access Settings">
+    In the Share Record modal, you'll configure:
+    
+    **Doctor's Aleo Address (Optional)**
+    - Leave empty to allow any doctor with the QR code to access
+    - Enter a specific Aleo address (starts with `aleo1...`) to restrict access to one doctor only
+    
+    **Access Duration**
+    Choose from predefined durations:
+    - 1 Hour (240 blocks) - Quick consultation
+    - 4 Hours (960 blocks) - Extended appointment
+    - 12 Hours (2,880 blocks) - Half day access
+    - 24 Hours (5,760 blocks) - Full day access
+    - 3 Days (17,280 blocks) - Multi-day care
+    - 7 Days (40,320 blocks) - Extended care (maximum)
+  </Step>
+  
+  <Step title="Generate QR Code">
+    Click "Generate QR Code" to create a secure, time-limited access token.
+  </Step>
+  
+  <Step title="Share with Your Doctor">
+    You can share the access in two ways:
+    
+    - **Show QR Code**: Display the QR code on your phone/screen for the doctor to scan
+    - **Copy Access Token**: Copy the token string and send it securely (not recommended for public channels)
+    - **Download QR**: Save the QR code as a PNG file
+  </Step>
+</Steps>
+
+### Important Security Notes
+
+<Warning>
+  **Share Responsibly**
+  
+  Only share QR codes with trusted healthcare providers. Once generated, anyone with the QR code can access the record (unless you restricted it to a specific doctor's address).
+</Warning>
+
+<Note>
+  **Automatic Expiration**
+  
+  Access automatically expires after the duration you selected. The QR code and access token become invalid once the time limit is reached.
+</Note>
+
+### What Doctors See
+
+When a doctor scans your QR code:
+
+1. The Aleo blockchain verifies the access token is valid and not expired
+2. The encrypted medical record is decrypted using the shared view key
+3. The doctor sees:
+   - Record title and description
+   - Record type (e.g., Laboratory Results, Prescription)
+   - Your wallet address (patient identifier)
+   - Access expiration time
+   - The decrypted medical data
+
+## Managing Privacy & Access
+
+### Viewing Shared Access History
+
+Track who has access to your records:
+
+<Steps>
+  <Step title="Navigate to Shared Access">
+    Click "Shared" in the main navigation menu.
+  </Step>
+  
+  <Step title="View Access Statistics">
+    See at a glance:
+    - **Active Shares**: Currently valid access grants
+    - **Expired**: Access grants that have passed their expiration time
+    - **Revoked**: Access you manually revoked before expiration
+  </Step>
+  
+  <Step title="Review Access Details">
+    For each shared record, you can see:
+    - Which medical record was shared
+    - Doctor's wallet address (or "Any doctor" if unrestricted)
+    - When access was granted
+    - When access expires
+    - Current status (Active, Expired, or Revoked)
+  </Step>
+</Steps>
+
+### Revoking Access
+
+You can revoke access to a record before it expires:
+
+<Steps>
+  <Step title="Find the Active Share">
+    On the Shared Access page, locate the active share you want to revoke.
+  </Step>
+  
+  <Step title="Click 'Revoke Access'">
+    Click the "Revoke Access" button on the access grant card.
+  </Step>
+  
+  <Step title="Confirm Revocation">
+    The access token will be immediately invalidated, and the doctor will no longer be able to access the record.
+  </Step>
+</Steps>
+
+<Warning>
+  Revocation is immediate and cannot be undone. The doctor will need a new QR code to regain access.
+</Warning>
+
+## Data Privacy & Encryption
+
+### How Your Data is Protected
+
+Salud Health implements multiple layers of security:
+
+<Accordion title="End-to-End Encryption">
+  Your medical data is encrypted in your browser **before** it's sent to the backend or blockchain. The server never sees your unencrypted health information.
+</Accordion>
+
+<Accordion title="Private Records on Aleo">
+  Records are stored as private, encrypted data on the Aleo blockchain. Only you (and those you grant access to) can decrypt and view the contents.
+</Accordion>
+
+<Accordion title="Zero-Knowledge Proofs">
+  When doctors access your records, Aleo's zero-knowledge proofs verify access permissions without revealing your data to anyone else on the network.
+</Accordion>
+
+<Accordion title="Time-Limited Access">
+  All shared access is time-bound. Access tokens automatically expire, ensuring doctors only have temporary access to your records.
+</Accordion>
+
+<Accordion title="View Key Encryption">
+  When sharing records, the view key is encrypted with the doctor's public key, ensuring only the intended recipient can decrypt your data.
+</Accordion>
+
+### What's Encrypted vs Public
+
+**Encrypted (Private)**:
+- Medical record title and description
+- All medical data content
+- View keys for accessing records
+
+**Public (On Blockchain)**:
+- Record IDs (random identifiers)
+- Data hashes (for verification)
+- Access grant metadata (not the content)
+- Wallet addresses
+- Timestamps
+
+## Best Practices
+
+### Creating Records
+
+- **Be Descriptive**: Use clear titles that help you identify records later
+- **Choose Correct Type**: Select the appropriate record type for better organization
+- **Regular Updates**: Create new records after each medical visit or test
+- **Include Dates**: Mention dates in descriptions for better context
+
+### Sharing Records
+
+- **Minimum Duration**: Choose the shortest access duration necessary
+- **Verify Doctor**: When possible, restrict access to a specific doctor's Aleo address
+- **Monitor Access**: Regularly check your Shared Access page to review active grants
+- **Revoke When Done**: Manually revoke access after the appointment if needed
+
+### Security
+
+- **Protect Your Private Key**: Never share your Aleo private key with anyone
+- **Use Strong Passwords**: If you store your private key in a password manager, use a strong master password
+- **Verify QR Codes**: Only show QR codes to trusted healthcare providers in person
+- **Regular Audits**: Periodically review your access history for any unexpected grants
+
+## Troubleshooting
+
+<Accordion title="Records not appearing after creation">
+  **Solution**: Records are fetched from the blockchain on connect and may take 10-15 seconds to sync. Try clicking the "Sync" button to manually refresh. Check the browser console for sync status.
+</Accordion>
+
+<Accordion title="Unable to share record">
+  **Solution**: Ensure you're connected to your wallet and the record exists. If specifying a doctor's address, verify it starts with `aleo1` and is exactly 63 characters.
+</Accordion>
+
+<Accordion title="Shared access not showing in history">
+  **Solution**: Access grants are stored locally and in the blockchain. Try refreshing the page or reconnecting your wallet to sync the latest data.
+</Accordion>
+
+<Accordion title="QR code won't scan">
+  **Solution**: Ensure the QR code is clearly visible on screen. Try downloading the QR code as a PNG for better quality. Make sure the doctor is using the correct QR scanner in the Doctor Portal.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Doctor Guide" icon="user-doctor" href="/guides/doctor-guide">
+    Learn how doctors access shared records
+  </Card>
+  <Card title="Wallet Setup" icon="wallet" href="/guides/wallet-setup">
+    Set up your Aleo wallet properly
+  </Card>
+</CardGroup>

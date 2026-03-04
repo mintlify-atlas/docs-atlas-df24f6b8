@@ -1,0 +1,625 @@
+---
+title: 'Architecture'
+description: 'Deep dive into the Salud Health Records smart contract architecture, data structures, and state management'
+---
+
+## Program Structure
+
+The Salud Health Records contract is organized into five main sections:
+
+<CodeGroup>
+```leo Program Structure
+program salud_health_records_v6.aleo {
+    // 1. PROGRAM CONFIGURATION
+    @admin(address = "aleo1...")
+    async constructor() {}
+    
+    // 2. CONSTANTS
+    const DEFAULT_ACCESS_DURATION_BLOCKS: u32 = 5760u32;
+    
+    // 3. DATA STRUCTURES
+    record MedicalRecord { ... }
+    struct AccessGrant { ... }
+    
+    // 4. PUBLIC STATE (MAPPINGS)
+    mapping access_grants: field => AccessGrant;
+    
+    // 5. TRANSITION FUNCTIONS
+    async transition create_record(...) -> (MedicalRecord, Future) { ... }
+}
+```
+</CodeGroup>
+
+## Data Structures
+
+### MedicalRecord (Private Record)
+
+The core data structure for storing encrypted patient health information:
+
+<CodeGroup>
+```leo MedicalRecord Definition
+/// MedicalRecord - Private record storing encrypted patient health data
+/// 
+/// This record is owned by the patient and contains their encrypted medical
+/// information. Only the patient can decrypt and read the contents.
+record MedicalRecord {
+    owner: address,        // The patient's Aleo address
+    record_id: field,      // Unique identifier for this record
+    data_hash: field,      // Hash of encrypted data for integrity
+    data_part1: field,     // Encrypted data segment 1
+    data_part2: field,     // Encrypted data segment 2
+    data_part3: field,     // Encrypted data segment 3
+    data_part4: field,     // Encrypted data segment 4
+    data_part5: field,     // Encrypted data segment 5
+    data_part6: field,     // Encrypted data segment 6
+    data_part7: field,     // Encrypted data segment 7
+    data_part8: field,     // Encrypted data segment 8
+    data_part9: field,     // Encrypted data segment 9
+    data_part10: field,    // Encrypted data segment 10
+    data_part11: field,    // Encrypted data segment 11
+    data_part12: field,    // Encrypted data segment 12
+    record_type: u8,       // Category of medical record (1-10)
+    created_at: u32,       // Block height placeholder
+    version: u8,           // Record version for upgradability
+}
+```
+</CodeGroup>
+
+#### Storage Capacity
+
+The contract stores medical data across **12 field elements**, providing approximately **360 bytes** of encrypted storage capacity:
+
+- Each field element: ~253 bits (~31 bytes)
+- Total capacity: 12 × 31 = ~372 bytes
+- Practical encrypted capacity: ~360 bytes
+
+<Note>
+For larger medical documents (PDFs, images), store the encrypted file off-chain (IPFS, S3) and store only the hash + metadata on-chain.
+</Note>
+
+#### Record ID Generation
+
+Record IDs are deterministically generated using a cryptographic hash:
+
+<CodeGroup>
+```leo Record ID Generation
+// Helper struct for hashing
+struct RecordIdInput {
+    patient: address,
+    data_hash: field,
+    nonce: field,
+}
+
+// Generate unique record ID
+let record_id: field = BHP256::hash_to_field(RecordIdInput {
+    patient: self.caller,     // Ensures uniqueness per patient
+    data_hash: data_hash,     // Ensures uniqueness per content
+    nonce: nonce,             // Prevents prediction
+});
+```
+</CodeGroup>
+
+This approach allows clients to compute the record ID **before** creating the record, enabling better UX for record tracking.
+
+### AccessGrant (Public Struct)
+
+Stores information about temporary access permissions:
+
+<CodeGroup>
+```leo AccessGrant Definition
+/// AccessGrant - Public struct representing temporary access permission
+///
+/// Stored in public mapping so doctors can verify their access rights.
+/// The actual medical data remains private - this only proves permission.
+struct AccessGrant {
+    patient: address,         // Who granted access
+    doctor: address,          // Who has access
+    record_id: field,         // Which record (not the data itself)
+    access_token: field,      // Cryptographic proof of permission
+    granted_at: u32,          // When access was granted (block height)
+    expires_at: u32,          // When access expires (block height)
+    is_revoked: bool,         // Manual revocation flag
+}
+```
+</CodeGroup>
+
+<Info>
+**Privacy Note**: While AccessGrant is public, it only reveals *that* access was granted, not *what* medical data is contained in the record.
+</Info>
+
+#### Access Token Generation
+
+Access tokens are cryptographically generated to be unpredictable:
+
+<CodeGroup>
+```leo Access Token Generation
+// Helper struct for hashing
+struct AccessTokenInput {
+    record_id: field,
+    doctor: address,
+    patient: address,
+    nonce: field,
+}
+
+// Generate unique access token
+let access_token: field = BHP256::hash_to_field(AccessTokenInput {
+    record_id: medical_record.record_id,
+    doctor: doctor,
+    patient: self.caller,
+    nonce: nonce,  // Client-provided randomness prevents prediction
+});
+```
+</CodeGroup>
+
+### RecordMetadata (Public Struct)
+
+Optional public index for record discovery:
+
+<CodeGroup>
+```leo RecordMetadata Definition
+/// RecordMetadata - Public struct for record discovery (optional indexing)
+///
+/// Allows patients to have a public index of their records without
+/// revealing the actual content. Useful for frontend record listing.
+struct RecordMetadata {
+    patient: address,
+    record_id: field,
+    record_type: u8,
+    created_at: u32,
+    is_active: bool,
+}
+```
+</CodeGroup>
+
+<Warning>
+Patients can choose whether to make records discoverable via the `make_discoverable` parameter. Setting this to `false` provides maximum privacy.
+</Warning>
+
+## State Management
+
+The contract uses four public mappings for on-chain state:
+
+### Mappings Overview
+
+<CodeGroup>
+```leo Mapping Declarations
+/// Maps access_token -> AccessGrant for verification
+/// Doctors use this to prove they have valid access
+mapping access_grants: field => AccessGrant;
+
+/// Maps record_id -> RecordMetadata for optional public indexing
+/// Patients can choose to make record existence public (not content)
+mapping record_metadata: field => RecordMetadata;
+
+/// Maps (patient_address as field) -> record_count for tracking
+/// Helps track how many records a patient has created
+mapping patient_record_count: field => u64;
+
+/// Maps access_token -> bool for quick validity checks
+/// Cheaper than reading full AccessGrant struct
+mapping access_token_valid: field => bool;
+```
+</CodeGroup>
+
+| Mapping | Key Type | Value Type | Purpose |
+|---------|----------|------------|----------|
+| `access_grants` | field | AccessGrant | Full access grant details |
+| `access_token_valid` | field | bool | Quick validity check (gas optimization) |
+| `record_metadata` | field | RecordMetadata | Optional public record index |
+| `patient_record_count` | field | u64 | Track number of records per patient |
+
+## Transition Functions
+
+### create_record
+
+Creates a new encrypted medical record owned by the patient.
+
+<CodeGroup>
+```leo create_record Signature
+async transition create_record(
+    data_part1: field,
+    data_part2: field,
+    data_part3: field,
+    data_part4: field,
+    data_part5: field,
+    data_part6: field,
+    data_part7: field,
+    data_part8: field,
+    data_part9: field,
+    data_part10: field,
+    data_part11: field,
+    data_part12: field,
+    record_type: u8,
+    data_hash: field,
+    nonce: field,
+    make_discoverable: bool
+) -> (MedicalRecord, Future)
+```
+
+```leo create_record Implementation
+async transition create_record(
+    // ... parameters ...
+) -> (MedicalRecord, Future) {
+    // Validate record_type is within acceptable range (1-10)
+    assert(record_type >= 1u8 && record_type <= 10u8);
+
+    // Generate unique record ID
+    let record_id: field = BHP256::hash_to_field(RecordIdInput {
+        patient: self.caller,
+        data_hash: data_hash,
+        nonce: nonce,
+    });
+
+    // Create the medical record (private, owned by patient)
+    let medical_record: MedicalRecord = MedicalRecord {
+        owner: self.caller,
+        record_id: record_id,
+        data_hash: data_hash,
+        data_part1: data_part1,
+        data_part2: data_part2,
+        data_part3: data_part3,
+        data_part4: data_part4,
+        data_part5: data_part5,
+        data_part6: data_part6,
+        data_part7: data_part7,
+        data_part8: data_part8,
+        data_part9: data_part9,
+        data_part10: data_part10,
+        data_part11: data_part11,
+        data_part12: data_part12,
+        record_type: record_type,
+        created_at: 0u32,
+        version: 1u8,
+    };
+
+    return (medical_record, finalize_create_record(
+        self.caller,
+        record_id,
+        record_type,
+        make_discoverable
+    ));
+}
+```
+</CodeGroup>
+
+The `finalize_create_record` async function updates on-chain state:
+
+<CodeGroup>
+```leo create_record Finalization
+async function finalize_create_record(
+    patient: address,
+    record_id: field,
+    record_type: u8,
+    make_discoverable: bool
+) {
+    // Increment patient's record count
+    let patient_key: field = patient as field;
+    let current_count: u64 = patient_record_count.get_or_use(patient_key, 0u64);
+    patient_record_count.set(patient_key, current_count + 1u64);
+
+    // If patient wants record to be discoverable, add metadata
+    if make_discoverable {
+        let metadata: RecordMetadata = RecordMetadata {
+            patient: patient,
+            record_id: record_id,
+            record_type: record_type,
+            created_at: block.height,  // Actual block height
+            is_active: true,
+        };
+        record_metadata.set(record_id, metadata);
+    }
+}
+```
+</CodeGroup>
+
+### grant_access
+
+Grants temporary access to a healthcare provider.
+
+<CodeGroup>
+```leo grant_access Signature
+async transition grant_access(
+    medical_record: MedicalRecord,
+    doctor: address,
+    duration_blocks: u32,
+    nonce: field
+) -> (MedicalRecord, field, Future)
+```
+
+```leo grant_access Implementation
+async transition grant_access(
+    medical_record: MedicalRecord,
+    doctor: address,
+    duration_blocks: u32,
+    nonce: field
+) -> (MedicalRecord, field, Future) {
+    // Validate doctor address is not the patient themselves
+    assert_neq(self.caller, doctor);
+
+    // Validate duration is within acceptable bounds
+    // Clamp to MIN_ACCESS_DURATION_BLOCKS minimum
+    let clamped_min: u32 = duration_blocks < MIN_ACCESS_DURATION_BLOCKS 
+        ? MIN_ACCESS_DURATION_BLOCKS 
+        : duration_blocks;
+    // Clamp to MAX_ACCESS_DURATION_BLOCKS maximum
+    let safe_duration: u32 = clamped_min > MAX_ACCESS_DURATION_BLOCKS 
+        ? MAX_ACCESS_DURATION_BLOCKS 
+        : clamped_min;
+
+    // Generate unique access token
+    let access_token: field = BHP256::hash_to_field(AccessTokenInput {
+        record_id: medical_record.record_id,
+        doctor: doctor,
+        patient: self.caller,
+        nonce: nonce,
+    });
+
+    return (
+        medical_record,
+        access_token,
+        finalize_grant_access(
+            self.caller,
+            doctor,
+            medical_record.record_id,
+            access_token,
+            safe_duration
+        )
+    );
+}
+```
+</CodeGroup>
+
+The access grant is stored on-chain:
+
+<CodeGroup>
+```leo grant_access Finalization
+async function finalize_grant_access(
+    patient: address,
+    doctor: address,
+    record_id: field,
+    access_token: field,
+    duration_blocks: u32
+) {
+    // Calculate expiration block height
+    let expires_at: u32 = block.height + duration_blocks;
+
+    // Create and store the access grant
+    let grant: AccessGrant = AccessGrant {
+        patient: patient,
+        doctor: doctor,
+        record_id: record_id,
+        access_token: access_token,
+        granted_at: block.height,
+        expires_at: expires_at,
+        is_revoked: false,
+    };
+
+    // Store in mappings
+    access_grants.set(access_token, grant);
+    access_token_valid.set(access_token, true);
+}
+```
+</CodeGroup>
+
+### verify_access
+
+Verifies if a doctor has valid access to a record.
+
+<CodeGroup>
+```leo verify_access Implementation
+async transition verify_access(
+    access_token: field,
+    doctor: address,
+    record_id: field
+) -> Future {
+    return finalize_verify_access(access_token, doctor, record_id);
+}
+
+async function finalize_verify_access(
+    access_token: field,
+    doctor: address,
+    record_id: field
+) {
+    // Check if token exists and is valid
+    let is_valid: bool = access_token_valid.get_or_use(access_token, false);
+    assert(is_valid); // Fails if token doesn't exist or is invalid
+
+    // Get the full access grant
+    let grant: AccessGrant = access_grants.get(access_token);
+
+    // Verify doctor address matches
+    assert_eq(grant.doctor, doctor);
+
+    // Verify record_id matches
+    assert_eq(grant.record_id, record_id);
+
+    // Verify not revoked
+    assert(!grant.is_revoked);
+
+    // Verify not expired
+    assert(block.height <= grant.expires_at);
+
+    // If all assertions pass, access is valid
+}
+```
+</CodeGroup>
+
+<Tip>
+The `verify_access` transaction succeeds if access is valid, and fails if any check doesn't pass. This makes verification atomic and deterministic.
+</Tip>
+
+### revoke_access
+
+Manually revokes access before expiration.
+
+<CodeGroup>
+```leo revoke_access Implementation
+async transition revoke_access(
+    access_token: field
+) -> Future {
+    return finalize_revoke_access(self.caller, access_token);
+}
+
+async function finalize_revoke_access(
+    caller: address,
+    access_token: field
+) {
+    // Get the existing grant
+    let grant: AccessGrant = access_grants.get(access_token);
+
+    // Verify caller is the patient who granted access
+    assert_eq(grant.patient, caller);
+
+    // Update grant with revoked status
+    let revoked_grant: AccessGrant = AccessGrant {
+        patient: grant.patient,
+        doctor: grant.doctor,
+        record_id: grant.record_id,
+        access_token: grant.access_token,
+        granted_at: grant.granted_at,
+        expires_at: grant.expires_at,
+        is_revoked: true,  // Mark as revoked
+    };
+
+    // Update mappings
+    access_grants.set(access_token, revoked_grant);
+    access_token_valid.set(access_token, false);
+}
+```
+</CodeGroup>
+
+## Utility Functions
+
+The contract provides helper functions for client-side computation:
+
+<CodeGroup>
+```leo Utility Functions
+/// compute_record_id - Helper to compute record ID off-chain
+transition compute_record_id(
+    patient: address,
+    data_hash: field,
+    nonce: field
+) -> field {
+    return BHP256::hash_to_field(RecordIdInput {
+        patient: patient,
+        data_hash: data_hash,
+        nonce: nonce,
+    });
+}
+
+/// compute_access_token - Helper to compute access token off-chain
+transition compute_access_token(
+    record_id: field,
+    doctor: address,
+    patient: address,
+    nonce: field
+) -> field {
+    return BHP256::hash_to_field(AccessTokenInput {
+        record_id: record_id,
+        doctor: doctor,
+        patient: patient,
+        nonce: nonce,
+    });
+}
+```
+</CodeGroup>
+
+These functions allow clients to:
+- Pre-compute record IDs for UX optimization
+- Pre-generate QR codes before executing transactions
+- Verify local computations match on-chain results
+
+## Security Considerations
+
+### Access Control
+
+<AccordionGroup>
+  <Accordion title="Record Ownership">
+    Records are owned via Aleo's native record ownership mechanism. Only the owner can consume (use) a record in transactions.
+  </Accordion>
+  
+  <Accordion title="Self-Grant Prevention">
+    The contract explicitly prevents patients from granting access to themselves:
+    ```leo
+    assert_neq(self.caller, doctor);
+    ```
+  </Accordion>
+  
+  <Accordion title="Duration Bounds">
+    Access duration is automatically clamped to safe bounds:
+    - Minimum: 240 blocks (~1 hour)
+    - Maximum: 40,320 blocks (~7 days)
+  </Accordion>
+  
+  <Accordion title="Revocation Rights">
+    Only the original patient can revoke access:
+    ```leo
+    assert_eq(grant.patient, caller);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Cryptographic Security
+
+<CardGroup cols={2}>
+  <Card title="BHP256 Hash Function" icon="fingerprint">
+    Uses Aleo's BHP256 (Bowe-Hopwood-Pedersen) hash function for deterministic, collision-resistant hashing.
+  </Card>
+  
+  <Card title="Client-Provided Nonces" icon="dice">
+    Nonces are provided by the client, ensuring the patient controls randomness and preventing token prediction.
+  </Card>
+  
+  <Card title="Deterministic IDs" icon="hashtag">
+    Record IDs and access tokens are deterministically generated, allowing client-side computation and verification.
+  </Card>
+  
+  <Card title="Integrity Verification" icon="shield-check">
+    Data hashes are stored alongside encrypted data, enabling integrity verification without decryption.
+  </Card>
+</CardGroup>
+
+### Attack Mitigation
+
+| Attack Vector | Mitigation Strategy |
+|---------------|---------------------|
+| Token Prediction | Client-provided random nonces |
+| Replay Attacks | Unique tokens per grant (record_id + doctor + patient + nonce) |
+| Unauthorized Access | Record ownership + explicit access verification |
+| Stale Access | Block height-based expiration (immutable) |
+| Revocation Bypass | Public mapping updates (transparent, verifiable) |
+| Self-Grant | Explicit caller ≠ doctor assertion |
+
+## Program Metadata
+
+<CodeGroup>
+```json program.json
+{
+  "program": "salud_health_records_v6.aleo",
+  "version": "0.1.0",
+  "description": "Privacy-preserving health records management on Aleo. Enables patients to store encrypted medical records and share them temporarily with healthcare providers via secure access tokens.",
+  "license": "MIT",
+  "leo": "3.4.0"
+}
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Function Reference" icon="book" href="./functions">
+    Complete reference for all transitions, parameters, and return values
+  </Card>
+  
+  <Card title="Integration Guide" icon="code" href="./integration">
+    Learn how to integrate with your frontend application
+  </Card>
+  
+  <Card title="Testing" icon="flask" href="./testing">
+    Run the test suite and deploy your own instance
+  </Card>
+  
+  <Card title="Examples" icon="lightbulb" href="./examples">
+    Real-world implementation examples and patterns
+  </Card>
+</CardGroup>

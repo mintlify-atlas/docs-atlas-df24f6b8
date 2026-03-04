@@ -1,0 +1,375 @@
+---
+title: 'Client Integration'
+description: 'Integrate the Salud Health smart contract into your application'
+---
+
+## Overview
+
+This guide shows how to integrate the Salud Health smart contract into client applications using TypeScript/JavaScript. You'll learn how to prepare transaction inputs, execute contract transitions, and handle records.
+
+## Setup
+
+Install the required dependencies for Aleo integration:
+
+```bash
+npm install @demox-labs/aleo-wallet-adapter-react
+npm install @demox-labs/aleo-wallet-adapter-reactui
+```
+
+## Data Encoding Utilities
+
+The contract stores medical data across 8 field elements, providing approximately 240 bytes of storage capacity.
+
+### String to Field Elements
+
+Convert medical record data into field elements for blockchain storage:
+
+```typescript
+const NUM_FIELD_PARTS = 8;
+const BYTES_PER_FIELD = 30;
+
+export function stringToFieldElements(data: string): string[] {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(data);
+  
+  const fields: string[] = [];
+  
+  for (let i = 0; i < NUM_FIELD_PARTS; i++) {
+    const start = i * BYTES_PER_FIELD;
+    const end = Math.min(start + BYTES_PER_FIELD, bytes.length);
+    const part = bytes.slice(start, end);
+    fields.push(bytesToField(part));
+  }
+  
+  // Pad remaining fields with zeros
+  while (fields.length < NUM_FIELD_PARTS) {
+    fields.push('0field');
+  }
+  
+  return fields;
+}
+
+function bytesToField(bytes: Uint8Array): string {
+  if (bytes.length === 0) {
+    return '0field';
+  }
+  
+  let value = BigInt(0);
+  for (let i = 0; i < bytes.length; i++) {
+    value = (value << BigInt(8)) | BigInt(bytes[i]);
+  }
+  
+  return `${value.toString()}field`;
+}
+```
+
+### Field Elements to String
+
+Convert field elements back to readable strings:
+
+```typescript
+export function fieldElementsToString(fields: string[]): string {
+  const allBytes: number[] = [];
+  
+  for (const fieldStr of fields) {
+    const bytes = fieldToBytes(fieldStr);
+    allBytes.push(...bytes);
+  }
+  
+  const decoder = new TextDecoder();
+  return decoder.decode(new Uint8Array(allBytes));
+}
+
+function fieldToBytes(fieldStr: string): Uint8Array {
+  const valueStr = fieldStr.replace('field', '');
+  
+  if (valueStr === '0' || valueStr === '') {
+    return new Uint8Array(0);
+  }
+  
+  let value = BigInt(valueStr);
+  const bytes: number[] = [];
+  
+  while (value > 0) {
+    bytes.unshift(Number(value & BigInt(0xff)));
+    value = value >> BigInt(8);
+  }
+  
+  return new Uint8Array(bytes);
+}
+```
+
+## Creating Medical Records
+
+### Prepare Record Data
+
+Format medical record data as JSON before encoding:
+
+```typescript
+export function createRecordData(title: string, description: string): string {
+  const data = {
+    t: title,
+    d: description,
+  };
+  
+  return JSON.stringify(data);
+}
+```
+
+### Generate Unique Identifiers
+
+```typescript
+export function generateNonce(): string {
+  const randomBytes = new Uint8Array(16);
+  crypto.getRandomValues(randomBytes);
+  
+  let nonce = BigInt(0);
+  for (let i = 0; i < randomBytes.length; i++) {
+    nonce = (nonce << BigInt(8)) | BigInt(randomBytes[i]);
+  }
+  
+  return `${nonce.toString()}field`;
+}
+
+export function hashData(data: string): string {
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(data);
+  
+  let hash = BigInt(0);
+  for (let i = 0; i < bytes.length; i++) {
+    hash = hash + BigInt(bytes[i]) * BigInt(i + 1);
+  }
+  
+  hash = hash * BigInt(31) + BigInt(17);
+  
+  return `${hash.toString()}field`;
+}
+```
+
+### Prepare Transaction Inputs
+
+Use the helper function to prepare all inputs for the `create_record` transition:
+
+```typescript
+export interface CreateRecordInputs {
+  data_part1: string;
+  data_part2: string;
+  data_part3: string;
+  data_part4: string;
+  data_part5: string;
+  data_part6: string;
+  data_part7: string;
+  data_part8: string;
+  record_type: string;
+  data_hash: string;
+  nonce: string;
+  make_discoverable: string;
+}
+
+export function prepareCreateRecordInputs(
+  title: string,
+  description: string,
+  recordType: RecordType,
+  makeDiscoverable: boolean = true
+): CreateRecordInputs {
+  const dataStr = createRecordData(title, description);
+  
+  const [part1, part2, part3, part4, part5, part6, part7, part8] = 
+    stringToFieldElements(dataStr);
+  
+  const dataHash = hashData(dataStr);
+  const nonce = generateNonce();
+  
+  return {
+    data_part1: part1,
+    data_part2: part2,
+    data_part3: part3,
+    data_part4: part4,
+    data_part5: part5,
+    data_part6: part6,
+    data_part7: part7,
+    data_part8: part8,
+    record_type: `${recordType}u8`,
+    data_hash: dataHash,
+    nonce: nonce,
+    make_discoverable: makeDiscoverable ? 'true' : 'false',
+  };
+}
+```
+
+## Record Types
+
+The contract supports 10 categories of medical records:
+
+```typescript
+enum RecordType {
+  GeneralHealth = 1,
+  LaboratoryResults = 2,
+  Prescriptions = 3,
+  ImagingRadiology = 4,
+  VaccinationRecords = 5,
+  SurgicalRecords = 6,
+  MentalHealth = 7,
+  DentalRecords = 8,
+  VisionOphthalmology = 9,
+  OtherMiscellaneous = 10
+}
+```
+
+## Execute Transactions
+
+### Create a Medical Record
+
+```typescript
+import { useWallet } from '@demox-labs/aleo-wallet-adapter-react';
+
+const { publicKey, executeTransaction } = useWallet();
+
+const inputs = prepareCreateRecordInputs(
+  'Annual Checkup',
+  'Blood pressure: 120/80, Weight: 165 lbs',
+  RecordType.GeneralHealth,
+  true
+);
+
+const inputArray = [
+  inputs.data_part1,
+  inputs.data_part2,
+  inputs.data_part3,
+  inputs.data_part4,
+  inputs.data_part5,
+  inputs.data_part6,
+  inputs.data_part7,
+  inputs.data_part8,
+  inputs.record_type,
+  inputs.data_hash,
+  inputs.nonce,
+  inputs.make_discoverable,
+];
+
+try {
+  const txId = await executeTransaction(
+    'salud_health_records.aleo',
+    'create_record',
+    inputArray
+  );
+  console.log('Transaction submitted:', txId);
+} catch (error) {
+  console.error('Failed to create record:', error);
+}
+```
+
+### Grant Access to Healthcare Provider
+
+```typescript
+const doctorAddress = 'aleo1...';
+const durationBlocks = 5760; // 24 hours
+const nonce = generateNonce();
+
+try {
+  const [updatedRecord, accessToken] = await executeTransaction(
+    'salud_health_records.aleo',
+    'grant_access',
+    [medicalRecord, doctorAddress, `${durationBlocks}u32`, nonce]
+  );
+  
+  // Generate QR code with access token
+  const qrData = {
+    token: accessToken,
+    recordId: medicalRecord.record_id,
+  };
+  
+  console.log('Access granted:', accessToken);
+} catch (error) {
+  console.error('Failed to grant access:', error);
+}
+```
+
+### Verify Access (Doctor View)
+
+```typescript
+// Parse QR code data
+const { token, recordId } = parseQRCode(scannedData);
+
+try {
+  await executeTransaction(
+    'salud_health_records.aleo',
+    'verify_access',
+    [token, doctorAddress, recordId]
+  );
+  
+  // Access is valid - fetch and decrypt record
+  console.log('Access verified');
+} catch (error) {
+  // Access denied or expired
+  console.error('Access verification failed:', error);
+}
+```
+
+## Access Duration Guidelines
+
+```typescript
+const ACCESS_DURATIONS = {
+  ONE_HOUR: 240,      // ~1 hour
+  ONE_DAY: 5760,      // ~24 hours (default)
+  ONE_WEEK: 40320,    // ~7 days (maximum)
+};
+
+// Minimum: 240 blocks
+// Maximum: 40320 blocks
+// Default: 5760 blocks
+```
+
+## Error Handling
+
+Handle common transaction errors:
+
+```typescript
+try {
+  const txId = await executeTransaction(program, transition, inputs);
+  // Wait for confirmation
+  await waitForTransaction(txId);
+} catch (error) {
+  if (error.message.includes('insufficient balance')) {
+    // Handle insufficient credits
+    showError('Insufficient Aleo credits');
+  } else if (error.message.includes('record not found')) {
+    // Handle missing record
+    showError('Medical record not found');
+  } else if (error.message.includes('access denied')) {
+    // Handle authorization failure
+    showError('You do not own this record');
+  } else {
+    // Generic error
+    showError('Transaction failed. Please try again.');
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Data Validation" icon="check">
+    Always validate medical data length before encoding (max ~240 bytes)
+  </Card>
+  <Card title="Secure Nonces" icon="shield">
+    Use cryptographically secure random values for nonces
+  </Card>
+  <Card title="Error Recovery" icon="rotate">
+    Implement retry logic for failed transactions
+  </Card>
+  <Card title="Transaction Status" icon="clock">
+    Monitor transaction status and provide feedback to users
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Encryption Guide" icon="lock" href="/contract/encryption-guide">
+    Learn how to encrypt medical data client-side
+  </Card>
+  <Card title="Testing" icon="flask" href="/contract/testing">
+    Test your smart contract integration
+  </Card>
+</CardGroup>

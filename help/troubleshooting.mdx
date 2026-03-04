@@ -1,0 +1,243 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for Salud Health
+---
+
+## Common Issues
+
+This page covers the most common problems you might encounter while using Salud and how to resolve them.
+
+## Backend Connection Issues
+
+### "Cannot connect to backend"
+
+**Symptoms:**
+- Unable to connect wallet
+- Records not loading
+- Error messages about API connection
+
+**Solutions:**
+
+1. **Verify backend is running**
+   ```bash
+   cd backend
+   npm start
+   ```
+   The backend should be running on `http://localhost:3001`
+
+2. **Check environment configuration**
+   
+   Verify `frontend/.env` has the correct API URL:
+   ```env
+   VITE_API_URL=http://localhost:3001/api
+   ```
+
+3. **Check for port conflicts**
+   
+   Make sure no other application is using port 3001:
+   ```bash
+   lsof -i :3001
+   ```
+
+4. **Verify firewall settings**
+   
+   Ensure your firewall isn't blocking localhost connections on port 3001
+
+## Wallet & Authentication Issues
+
+### "Invalid private key"
+
+**Common causes:**
+- Private key doesn't start with `APrivateKey1...`
+- Private key is not exactly 59 characters long
+- Extra spaces or characters in the key
+
+**Solutions:**
+
+1. **Verify key format**
+   - Must start with `APrivateKey1`
+   - Must be exactly 59 characters
+   - No spaces or line breaks
+
+2. **Re-export from wallet**
+   - Export private key again from Leo Wallet or Shield Wallet
+   - Copy the entire key carefully
+
+3. **Generate a new key**
+   - Use the "Generate New" button in the Salud connect screen
+   - Save the generated key securely
+
+### Wallet connection drops
+
+**If your session disconnects:**
+- Sessions are temporary and stored in memory
+- Refreshing the page requires reconnecting
+- Your private key is never permanently stored for security
+
+## Record Management Issues
+
+### "Failed to create record"
+
+**Common causes:**
+- Insufficient testnet credits
+- Backend errors
+- Network connectivity issues
+
+**Solutions:**
+
+1. **Check your balance**
+   - View wallet balance in the app
+   - Request testnet credits from Aleo faucet if needed
+
+2. **Enable Demo Mode**
+   
+   For testing without blockchain transactions, set in `backend/.env`:
+   ```env
+   DEMO_MODE=true
+   ```
+   
+   In demo mode:
+   - All features work normally
+   - Records stored in localStorage
+   - No real blockchain transactions
+   - Records won't persist across browsers/devices
+
+3. **Check backend logs**
+   
+   Look at the backend console for detailed error messages
+
+### Records not appearing
+
+**Symptoms:**
+- Created records don't show up
+- Record list is empty
+
+**Solutions:**
+
+1. **Wait for blockchain sync**
+   - Records are fetched from blockchain on connect
+   - Initial sync may take 10-15 seconds
+   - Check browser console for sync status
+
+2. **Refresh the connection**
+   - Disconnect and reconnect your wallet
+   - This triggers a fresh sync from blockchain
+
+3. **Verify record creation**
+   - Check backend logs to confirm record was created
+   - Look for transaction confirmation messages
+
+## QR Code & Sharing Issues
+
+### QR code not scanning
+
+**Solutions:**
+- Ensure good lighting when scanning
+- Try zooming in/out on the QR code
+- Use a different QR scanner app
+- Manually copy the access token instead
+
+### Access token not working
+
+**Check:**
+- Token hasn't expired (check access duration)
+- Doctor's address is correct
+- Token was copied completely without extra characters
+
+## Transaction Failures
+
+### Transactions timing out
+
+**Possible causes:**
+- Network congestion on Aleo testnet
+- Backend connection issues
+- Insufficient credits
+
+**Solutions:**
+1. Wait a few minutes and try again
+2. Check your wallet balance
+3. Verify backend is connected to Aleo network
+4. Check `ALEO_API_URL` in backend `.env`:
+   ```env
+   ALEO_API_URL=https://api.explorer.provable.com/v1
+   ```
+
+### "Insufficient credits" error
+
+**Solutions:**
+- Request testnet credits from Aleo faucet
+- Use Demo Mode for testing
+- Check balance using the wallet info in the app
+
+## Development Issues
+
+### Frontend won't start
+
+**Solutions:**
+1. **Reinstall dependencies**
+   ```bash
+   cd frontend
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+2. **Check Node.js version**
+   
+   Requires Node.js 18 or higher:
+   ```bash
+   node --version
+   ```
+
+3. **Verify .env file**
+   
+   Make sure `frontend/.env` exists with:
+   ```env
+   VITE_API_URL=http://localhost:3001/api
+   ```
+
+### Backend crashes or errors
+
+**Solutions:**
+1. **Check environment variables**
+   
+   Verify `backend/.env` is configured:
+   ```env
+   PORT=3001
+   ALEO_API_URL=https://api.explorer.provable.com/v1
+   PROGRAM_ID=salud_health_records_v2.aleo
+   DEMO_MODE=false
+   ```
+
+2. **Reinstall dependencies**
+   ```bash
+   cd backend
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+3. **Check logs**
+   
+   Look for specific error messages in the backend console output
+
+## Still Having Issues?
+
+If you're still experiencing problems:
+
+1. **Check existing issues** on GitHub to see if others have reported the same problem
+2. **Create a new issue** with:
+   - Detailed description of the problem
+   - Steps to reproduce
+   - Error messages (if any)
+   - Your environment (OS, Node.js version, browser)
+3. **Join the Aleo community Discord** for general questions about the Aleo blockchain
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="FAQ" icon="circle-question" href="/help/faq">
+    Frequently asked questions
+  </Card>
+  <Card title="Support" icon="life-ring" href="/help/support">
+    Get help from the community
+  </Card>
+</CardGroup>

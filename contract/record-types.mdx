@@ -1,0 +1,317 @@
+---
+title: "Record Types"
+description: "Medical record type enumeration and categories for the Salud Health smart contract"
+---
+
+## Overview
+
+The `record_type` field in the [MedicalRecord](/contract/medical-record) structure categorizes the type of medical information stored. This enumeration helps organize patient health data and enables filtering and specialized handling of different record categories.
+
+## Type Enumeration
+
+Record types are represented as `u8` values ranging from **1 to 10**. The contract validates this range during record creation:
+
+```leo
+assert(record_type >= 1u8 && record_type <= 10u8);
+```
+
+### Valid Record Types
+
+<ResponseField name="1" type="General Health">
+  General health records including:
+  - Medical history
+  - Physical examination notes
+  - Chronic condition documentation
+  - General practitioner visit summaries
+  - Health assessments and screenings
+</ResponseField>
+
+<ResponseField name="2" type="Laboratory Results">
+  Laboratory test results including:
+  - Blood work and analysis
+  - Urinalysis
+  - Genetic testing results
+  - Pathology reports
+  - Microbiology cultures
+  - Biochemistry panels
+</ResponseField>
+
+<ResponseField name="3" type="Prescriptions">
+  Medication and prescription records including:
+  - Current prescriptions
+  - Medication history
+  - Dosage information
+  - Pharmacy dispensing records
+  - Drug interaction notes
+  - Prescription refills
+</ResponseField>
+
+<ResponseField name="4" type="Imaging/Radiology">
+  Medical imaging and radiology reports including:
+  - X-ray reports
+  - MRI scan results
+  - CT scan findings
+  - Ultrasound reports
+  - PET scan results
+  - Radiologist interpretations
+  
+  <Note>
+    Large image files should be stored off-chain with only metadata and report text in the MedicalRecord due to the ~372 byte storage limit.
+  </Note>
+</ResponseField>
+
+<ResponseField name="5" type="Vaccination Records">
+  Immunization and vaccination documentation including:
+  - Vaccination dates and types
+  - Immunization schedules
+  - Vaccine lot numbers
+  - Booster shot records
+  - Adverse reaction history
+  - International vaccination certificates
+</ResponseField>
+
+<ResponseField name="6" type="Surgical Records">
+  Surgical procedures and operative reports including:
+  - Pre-operative assessments
+  - Operative notes
+  - Post-operative care instructions
+  - Anesthesia records
+  - Surgical complications
+  - Follow-up visit notes
+</ResponseField>
+
+<ResponseField name="7" type="Mental Health">
+  Mental health and psychiatric records including:
+  - Psychiatric evaluations
+  - Therapy session notes
+  - Mental health diagnoses
+  - Psychological test results
+  - Treatment plans
+  - Medication management for mental health
+  
+  <Warning>
+    Mental health records require special privacy considerations. Ensure proper encryption and access controls are in place.
+  </Warning>
+</ResponseField>
+
+<ResponseField name="8" type="Dental Records">
+  Dental and oral health documentation including:
+  - Dental examination findings
+  - X-rays and imaging
+  - Treatment plans
+  - Procedure notes
+  - Orthodontic records
+  - Periodontal assessments
+</ResponseField>
+
+<ResponseField name="9" type="Vision/Ophthalmology">
+  Eye care and vision records including:
+  - Eye examination results
+  - Vision prescriptions
+  - Contact lens fittings
+  - Ophthalmological procedures
+  - Retinal imaging
+  - Glaucoma monitoring
+</ResponseField>
+
+<ResponseField name="10" type="Other/Miscellaneous">
+  Miscellaneous medical records that don't fit other categories including:
+  - Alternative medicine treatments
+  - Nutritional assessments
+  - Physical therapy notes
+  - Occupational health records
+  - Travel medicine documentation
+  - Any other medical documentation
+</ResponseField>
+
+## Usage in Code
+
+When creating a medical record, specify the appropriate type:
+
+```typescript
+// Example: Creating a laboratory results record
+const RECORD_TYPE_LAB = 2;
+
+const record = await aleoSDK.execute('create_record', [
+  ...encryptedDataChunks,
+  RECORD_TYPE_LAB,  // Type 2: Laboratory Results
+  dataHash,
+  nonce,
+  makeDiscoverable
+]);
+```
+
+```typescript
+// Example: Creating a vaccination record
+const RECORD_TYPE_VACCINATION = 5;
+
+const vaccinationRecord = await aleoSDK.execute('create_record', [
+  ...encryptedVaccinationData,
+  RECORD_TYPE_VACCINATION,  // Type 5: Vaccination Records
+  dataHash,
+  nonce,
+  true  // Make discoverable for easy access
+]);
+```
+
+## Type Constants (Recommended)
+
+For better code maintainability, define type constants in your client application:
+
+```typescript
+// Record type enumeration
+export enum MedicalRecordType {
+  GENERAL_HEALTH = 1,
+  LABORATORY = 2,
+  PRESCRIPTION = 3,
+  IMAGING = 4,
+  VACCINATION = 5,
+  SURGICAL = 6,
+  MENTAL_HEALTH = 7,
+  DENTAL = 8,
+  VISION = 9,
+  OTHER = 10
+}
+
+// Usage
+const record = await createRecord(
+  encryptedData,
+  MedicalRecordType.LABORATORY
+);
+```
+
+## Filtering Records by Type
+
+If using the `RecordMetadata` public mapping (when `make_discoverable` is true), you can filter patient records by type:
+
+```typescript
+// Get all vaccination records for a patient
+const patientRecords = await queryRecordMetadata(patientAddress);
+const vaccinationRecords = patientRecords.filter(
+  record => record.record_type === 5
+);
+```
+
+## Storage Considerations
+
+### Data Size per Type
+
+Different record types have varying data size requirements:
+
+| Type | Typical Size | Fits in Single Record? |
+|------|--------------|------------------------|
+| Vaccination | ~100-200 bytes | ✅ Yes |
+| Prescription | ~150-300 bytes | ✅ Yes |
+| Lab Results | ~200-500 bytes | ⚠️ May need multiple |
+| Imaging Reports | ~300-1000 bytes | ❌ Likely needs chunking |
+| Surgical Notes | ~500-2000 bytes | ❌ Requires chunking |
+
+<Info>
+  Each MedicalRecord provides approximately **372 bytes** of storage (12 fields × 31 bytes). For larger records, create multiple MedicalRecord instances and link them using metadata.
+</Info>
+
+### Chunking Large Records
+
+For record types that exceed the 372-byte limit:
+
+```typescript
+// Split large surgical record into multiple parts
+const surgicalData = encryptSurgicalRecord(data); // 800 bytes
+
+const chunk1 = surgicalData.slice(0, 372);
+const chunk2 = surgicalData.slice(372, 744);
+const chunk3 = surgicalData.slice(744);
+
+// Create linked records
+const record1 = await createRecord(chunk1, SURGICAL, { part: 1, total: 3 });
+const record2 = await createRecord(chunk2, SURGICAL, { part: 2, total: 3 });
+const record3 = await createRecord(chunk3, SURGICAL, { part: 3, total: 3 });
+```
+
+## Validation
+
+The contract enforces strict type validation:
+
+```leo
+// In create_record transition
+assert(record_type >= 1u8 && record_type <= 10u8);
+```
+
+**Invalid values will cause transaction failure**:
+
+```typescript
+// ❌ This will fail - type 0 is invalid
+await createRecord(data, 0);
+
+// ❌ This will fail - type 11 is out of range
+await createRecord(data, 11);
+
+// ✅ Valid - type within 1-10 range
+await createRecord(data, 5);
+```
+
+## Privacy Implications
+
+### Discoverable Records
+
+When `make_discoverable` is set to `true`, the record type is stored in the public `RecordMetadata` mapping:
+
+```leo
+struct RecordMetadata {
+    patient: address,
+    record_id: field,
+    record_type: u8,     // ⚠️ Publicly visible
+    created_at: u32,
+    is_active: bool,
+}
+```
+
+<Warning>
+  **Privacy Consideration**: If a record is made discoverable, the record type (e.g., "Mental Health") is publicly visible on-chain, even though the actual content remains encrypted. Consider privacy implications before making sensitive record types discoverable.
+</Warning>
+
+### Recommended Privacy Settings
+
+| Record Type | Recommended `make_discoverable` |
+|-------------|--------------------------------|
+| General Health | ✅ True (low sensitivity) |
+| Laboratory | ✅ True (useful for tracking) |
+| Prescription | ✅ True (medication management) |
+| Vaccination | ✅ True (proof of vaccination) |
+| Imaging | ⚠️ Case-by-case |
+| Surgical | ⚠️ Case-by-case |
+| Mental Health | ❌ False (high sensitivity) |
+| Dental | ✅ True (low sensitivity) |
+| Vision | ✅ True (low sensitivity) |
+| Other | ⚠️ Case-by-case |
+
+## Best Practices
+
+<Check>
+  **Use Specific Types**: Always use the most specific record type available rather than defaulting to "Other" (type 10). This improves organization and filtering.
+</Check>
+
+<Check>
+  **Consistent Categorization**: Maintain consistent type assignment across your application. Document your categorization logic for edge cases.
+</Check>
+
+<Check>
+  **Type-Specific Encryption**: Consider using different encryption schemas or key derivation for highly sensitive types like Mental Health records.
+</Check>
+
+<Info>
+  **Future Extensibility**: The contract's `version` field allows for future expansion of record types beyond 1-10 in later schema versions.
+</Info>
+
+## Related Documentation
+
+- [MedicalRecord Structure](/contract/medical-record) - Complete field documentation
+- [AccessGrant Structure](/contract/access-grant) - Access control for records
+- RecordMetadata - Public record indexing (when discoverable)
+
+## Source Reference
+
+Record types are documented in the contract source:
+- Field definition: `~/workspace/source/Salud Health Contract/src/main.leo:81`
+- Validation logic: `~/workspace/source/Salud Health Contract/src/main.leo:182`
+- Type enumeration: `~/workspace/source/Salud Health Contract/ARCHITECTURE.md:67-77`

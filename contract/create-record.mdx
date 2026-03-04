@@ -1,0 +1,300 @@
+---
+title: "create_record"
+description: "Create a new encrypted medical record owned by the patient"
+---
+
+## Overview
+
+The `create_record` transition allows patients to store their encrypted medical data on-chain as a private record. The encryption must happen client-side before calling this function. The record is stored as a private Aleo record, visible only to the patient who owns it.
+
+## Function Signature
+
+```leo
+async transition create_record(
+    data_part1: field,
+    data_part2: field,
+    data_part3: field,
+    data_part4: field,
+    data_part5: field,
+    data_part6: field,
+    data_part7: field,
+    data_part8: field,
+    data_part9: field,
+    data_part10: field,
+    data_part11: field,
+    data_part12: field,
+    record_type: u8,
+    data_hash: field,
+    nonce: field,
+    make_discoverable: bool
+) -> (MedicalRecord, Future)
+```
+
+**Source**: [main.leo:163-223](https://github.com/SALUD-Healths/SALUD-MVP/blob/main/Salud%20Health%20Contract/src/main.leo#L163)
+
+## Parameters
+
+<ParamField path="data_part1" type="field" required>
+  First segment of encrypted medical data. Part of the 12-field encrypted data storage (~360 bytes total capacity).
+</ParamField>
+
+<ParamField path="data_part2" type="field" required>
+  Second segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part3" type="field" required>
+  Third segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part4" type="field" required>
+  Fourth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part5" type="field" required>
+  Fifth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part6" type="field" required>
+  Sixth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part7" type="field" required>
+  Seventh segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part8" type="field" required>
+  Eighth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part9" type="field" required>
+  Ninth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part10" type="field" required>
+  Tenth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part11" type="field" required>
+  Eleventh segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="data_part12" type="field" required>
+  Twelfth segment of encrypted medical data.
+</ParamField>
+
+<ParamField path="record_type" type="u8" required>
+  Category of medical record. Must be between 1-10:
+  - 1: General Health
+  - 2: Laboratory Results
+  - 3: Prescriptions
+  - 4: Imaging/Radiology
+  - 5: Vaccination Records
+  - 6: Surgical Records
+  - 7: Mental Health
+  - 8: Dental Records
+  - 9: Vision/Ophthalmology
+  - 10: Other/Miscellaneous
+</ParamField>
+
+<ParamField path="data_hash" type="field" required>
+  Hash of the original encrypted data for integrity verification. Used to ensure data hasn't been tampered with and as part of the unique record ID generation.
+</ParamField>
+
+<ParamField path="nonce" type="field" required>
+  Client-provided random nonce for unique ID generation. Ensures the record ID is unpredictable and unique even if the same data is uploaded multiple times.
+</ParamField>
+
+<ParamField path="make_discoverable" type="bool" required>
+  If `true`, adds the record to the public `record_metadata` mapping for indexing. This makes the record existence public (but not the content) so it can be listed in patient portals.
+</ParamField>
+
+## Returns
+
+<ResponseField name="MedicalRecord" type="record">
+  Private record owned by the caller containing:
+  - `owner`: The patient's Aleo address
+  - `record_id`: Unique identifier (BHP256 hash of patient, data_hash, nonce)
+  - `data_hash`: Integrity verification hash
+  - `data_part1-12`: Encrypted medical data segments
+  - `record_type`: Category (1-10)
+  - `created_at`: Set to 0u32 (actual creation time stored in public metadata)
+  - `version`: Schema version (currently 1u8)
+</ResponseField>
+
+<ResponseField name="Future" type="Future">
+  Async finalization that:
+  - Increments the patient's record count in `patient_record_count` mapping
+  - Optionally adds record metadata to `record_metadata` mapping if `make_discoverable` is true
+  - Records the actual block height as creation time in public metadata
+</ResponseField>
+
+## Validation Rules
+
+### Record Type Validation
+```leo
+assert(record_type >= 1u8 && record_type <= 10u8);
+```
+The function will fail if `record_type` is not between 1 and 10.
+
+### Record ID Generation
+```leo
+let record_id: field = BHP256::hash_to_field(RecordIdInput {
+    patient: self.caller,
+    data_hash: data_hash,
+    nonce: nonce,
+});
+```
+The record ID is deterministically computed from:
+- Patient address (ensures uniqueness per patient)
+- Data hash (ensures uniqueness per content)
+- Client nonce (prevents prediction, ensures uniqueness)
+
+## Code Example
+
+```typescript
+import { AleoClient } from '@aleo/sdk';
+
+// Initialize Aleo client
+const client = new AleoClient();
+
+// 1. Encrypt medical data client-side
+const medicalData = {
+  patientId: "12345",
+  diagnosis: "Type 2 Diabetes",
+  medications: ["Metformin 500mg"],
+  dateOfVisit: "2026-03-04"
+};
+
+const encryptedData = await encryptWithPatientKey(medicalData);
+
+// 2. Split encrypted data into 12 field elements
+const dataParts = splitIntoFields(encryptedData, 12);
+
+// 3. Generate data hash for integrity
+const dataHash = await computeHash(encryptedData);
+
+// 4. Generate secure random nonce
+const nonce = generateSecureRandom();
+
+// 5. Call create_record
+try {
+  const result = await client.execute(
+    'salud_health_records_v6.aleo',
+    'create_record',
+    [
+      dataParts[0],  // data_part1
+      dataParts[1],  // data_part2
+      dataParts[2],  // data_part3
+      dataParts[3],  // data_part4
+      dataParts[4],  // data_part5
+      dataParts[5],  // data_part6
+      dataParts[6],  // data_part7
+      dataParts[7],  // data_part8
+      dataParts[8],  // data_part9
+      dataParts[9],  // data_part10
+      dataParts[10], // data_part11
+      dataParts[11], // data_part12
+      2,             // record_type (Laboratory Results)
+      dataHash,      // data_hash
+      nonce,         // nonce
+      true           // make_discoverable
+    ]
+  );
+
+  console.log('Record created:', result.record.record_id);
+  
+  // Store record locally for future access grants
+  await saveRecordLocally(result.record);
+  
+} catch (error) {
+  console.error('Failed to create record:', error);
+}
+```
+
+## Client-Side Pre-computation
+
+You can compute the record ID before calling `create_record` using the `compute_record_id` helper:
+
+```typescript
+// Pre-compute the record ID
+const predictedRecordId = await client.execute(
+  'salud_health_records_v6.aleo',
+  'compute_record_id',
+  [
+    patientAddress,
+    dataHash,
+    nonce
+  ]
+);
+
+console.log('Record will have ID:', predictedRecordId);
+
+// Now create the record with the same parameters
+const record = await client.execute(
+  'salud_health_records_v6.aleo',
+  'create_record',
+  [/* ... same nonce ... */]
+);
+
+// record.record_id === predictedRecordId
+```
+
+## On-Chain State Changes
+
+### Patient Record Count
+The finalize function increments the patient's total record count:
+
+```leo
+let patient_key: field = patient as field;
+let current_count: u64 = patient_record_count.get_or_use(patient_key, 0u64);
+patient_record_count.set(patient_key, current_count + 1u64);
+```
+
+### Optional Public Metadata
+If `make_discoverable` is `true`, the record is indexed:
+
+```leo
+let metadata: RecordMetadata = RecordMetadata {
+    patient: patient,
+    record_id: record_id,
+    record_type: record_type,
+    created_at: block.height,
+    is_active: true,
+};
+record_metadata.set(record_id, metadata);
+```
+
+## Error Cases
+
+<Warning>
+  **Invalid Record Type**: Transaction fails if `record_type < 1` or `record_type > 10`
+  
+  ```
+  Error: Assertion failed: record_type >= 1u8 && record_type <= 10u8
+  ```
+</Warning>
+
+<Warning>
+  **Duplicate Record ID**: While unlikely due to hash-based generation, using the same `nonce`, `data_hash`, and patient address will produce the same record ID. Always use a unique random nonce.
+</Warning>
+
+## Privacy Considerations
+
+- **Medical Data**: The 12 data parts contain encrypted medical information. Encryption MUST happen client-side before calling this function.
+- **Private Record**: The `MedicalRecord` is stored as an Aleo record, visible only to the owner (patient).
+- **Public Metadata**: If `make_discoverable` is true, the record's existence, type, and creation time are public, but the actual medical data remains private.
+- **Data Capacity**: 12 fields provide ~360 bytes of encrypted storage. For larger medical records, implement client-side chunking.
+
+## Best Practices
+
+1. **Always encrypt data client-side** before splitting into field elements
+2. **Use cryptographically secure random nonces** to prevent record ID prediction
+3. **Compute and verify data_hash** to ensure integrity
+4. **Set make_discoverable based on patient preference** - some patients may want complete privacy
+5. **Store the private MedicalRecord locally** after creation for future access grants
+6. **Track nonces used** to avoid accidental reuse
+
+## Related Functions
+
+- [grant_access](/contract/grant-access) - Share this record with a healthcare provider
+- [MedicalRecord Structure](/contract/medical-record) - Understanding the record structure

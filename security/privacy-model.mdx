@@ -1,0 +1,313 @@
+---
+title: Privacy Model
+description: Understanding Salud's zero-knowledge privacy architecture and data encryption
+icon: mask
+---
+
+Salud implements a **zero-knowledge privacy model** powered by the Aleo blockchain. This means your medical data remains private even when stored on a public blockchain.
+
+## Zero-Knowledge Architecture
+
+### What is Zero-Knowledge?
+
+Zero-knowledge proofs allow you to prove something is true without revealing the underlying data:
+
+- **Prove ownership**: You can prove you own a medical record without revealing its contents
+- **Prove access**: Doctors can prove they have permission without seeing other records
+- **Prove validity**: The blockchain can verify transactions without seeing private data
+
+<Info>
+Aleo's zero-knowledge virtual machine (zkVM) ensures all private data remains encrypted on-chain while still enabling computation and verification.
+</Info>
+
+### Privacy Layers
+
+Salud implements multiple privacy layers:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│ Layer 1: CLIENT-SIDE ENCRYPTION                         │
+│ • Medical data encrypted in your browser                │
+│ • Private key never leaves your device                  │
+│ • Zero-knowledge of plaintext by server                 │
+└─────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│ Layer 2: PRIVATE RECORDS                                │
+│ • Stored as Aleo private records                        │
+│ • Only visible to record owner                          │
+│ • Encrypted at blockchain level                         │
+└─────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│ Layer 3: ACCESS CONTROL                                 │
+│ • Public access grants (metadata only)                  │
+│ • No medical content in public mappings                 │
+│ • Cryptographic token verification                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Data Visibility Model
+
+Understand what data is private vs. public in Salud:
+
+| Data Type | Visibility | Who Can See | What They See |
+|-----------|------------|-------------|---------------|
+| **Medical record content** | Private | Owner only | Full encrypted data |
+| **Record ID** | Private to owner | Owner only | Unique identifier |
+| **Access grants** | Public metadata | Anyone | Who has access, when it expires |
+| **Access tokens** | Semi-public | Token holders | Cryptographic proof of permission |
+| **Record metadata** | Optional public | Anyone (if enabled) | Record type, creation time |
+| **Patient address** | Public | Anyone | Your Aleo wallet address |
+
+<Warning>
+**Important**: While access grants are public, they only contain metadata:
+- Who granted access (patient address)
+- Who received access (doctor address)
+- Which record (record ID, not content)
+- When it expires (block height)
+
+They **never** contain actual medical data.
+</Warning>
+
+## Encryption Process
+
+### Creating a Medical Record
+
+Here's how data flows when you create a record:
+
+<Steps>
+  <Step title="Enter medical data">
+    You type your health information into the Salud interface.
+  </Step>
+  
+  <Step title="Client-side encryption">
+    The frontend encrypts your data using your private key:
+    ```javascript
+    const encryptedData = encryptWithPrivateKey(medicalData, privateKey);
+    ```
+  </Step>
+  
+  <Step title="Split into fields">
+    Encrypted data is split into 12 field elements (Aleo's data type):
+    ```javascript
+    const chunks = splitIntoFields(encryptedData); // ~360 bytes capacity
+    ```
+  </Step>
+  
+  <Step title="Generate integrity hash">
+    A hash is computed for data integrity verification:
+    ```javascript
+    const dataHash = hash(medicalData);
+    ```
+  </Step>
+  
+  <Step title="Create record on-chain">
+    The Leo program creates a private record:
+    ```leo
+    let medical_record: MedicalRecord = MedicalRecord {
+        owner: self.caller,
+        record_id: BHP256::hash(patient + data_hash + nonce),
+        data_hash: data_hash,
+        data_part1: chunks[0],
+        // ... data_part2-12
+        record_type: record_type,
+        created_at: 0u32,
+        version: 1u8,
+    };
+    ```
+  </Step>
+  
+  <Step title="Store as private record">
+    Aleo blockchain stores the record encrypted - only you can decrypt it.
+  </Step>
+</Steps>
+
+### Record ID Generation
+
+Record IDs are deterministically generated using cryptographic hashing:
+
+```leo
+record_id = BHP256::hash_to_field({
+    patient: address,      // Your Aleo address
+    data_hash: field,      // Hash of encrypted data
+    nonce: field,          // Random nonce you provide
+})
+```
+
+**Why this approach?**
+- **Unpredictable**: Impossible to guess record IDs
+- **Unique**: Each record has a unique ID
+- **Deterministic**: You can compute the ID client-side before submitting
+- **Privacy-preserving**: ID reveals nothing about the content
+
+<Tip>
+The client-provided nonce ensures you control the randomness - the backend cannot predict or manipulate record IDs.
+</Tip>
+
+## Access Sharing Model
+
+### How Sharing Preserves Privacy
+
+When you share a record with a doctor, Salud uses a **capability-based access model**:
+
+1. **You create an access grant** with cryptographic proof
+2. **Doctor receives an access token** (via QR code)
+3. **Doctor verifies the token** on-chain
+4. **You separately share the encrypted record** (off-chain or via separate channel)
+5. **Doctor decrypts using their credentials**
+
+<Info>
+The blockchain only stores **permission metadata**, not the medical data itself. The actual sharing of encrypted data happens separately.
+</Info>
+
+### Access Token Generation
+
+Access tokens are cryptographically unique:
+
+```leo
+access_token = BHP256::hash_to_field({
+    record_id: field,      // Which record
+    doctor: address,       // Doctor's address
+    patient: address,      // Your address
+    nonce: field,          // Random nonce
+})
+```
+
+**Security properties:**
+- **Collision-resistant**: Virtually impossible to generate the same token twice
+- **Unforgeable**: Cannot be created without the correct inputs
+- **Single-purpose**: Each token is for one specific record and doctor
+- **Time-bound**: Automatically expires based on block height
+
+### Time-Limited Access
+
+Access duration is enforced at the blockchain level:
+
+```leo
+let expires_at: u32 = block.height + duration_blocks;
+
+// Later, during verification:
+assert(block.height <= grant.expires_at);
+```
+
+**Duration limits:**
+- **Minimum**: 240 blocks (~1 hour)
+- **Maximum**: 40,320 blocks (~7 days)
+- **Default**: 5,760 blocks (~24 hours)
+
+<Warning>
+Block height-based expiration is **immutable and automatic**. You cannot extend an existing grant - you must create a new one.
+</Warning>
+
+## What Data is Never Exposed
+
+Salud's architecture ensures these data elements remain completely private:
+
+<CardGroup cols={2}>
+  <Card title="Medical Record Content" icon="file-medical">
+    Your health data (diagnoses, prescriptions, lab results) never leaves your browser unencrypted.
+  </Card>
+  
+  <Card title="Private Keys" icon="key">
+    Your Aleo private key is only stored in memory during your session - never persisted to disk or sent to servers.
+  </Card>
+  
+  <Card title="Decryption Keys" icon="unlock">
+    Only you hold the keys to decrypt your records. The backend and blockchain cannot decrypt your data.
+  </Card>
+  
+  <Card title="Full Medical History" icon="timeline">
+    When sharing with a doctor, you choose specific records - they never see your entire history.
+  </Card>
+</CardGroup>
+
+## Privacy Guarantees
+
+### What Salud Guarantees
+
+✅ **Medical data is encrypted end-to-end**
+- Data encrypted in browser before transmission
+- Stored encrypted on blockchain
+- Only you can decrypt with your private key
+
+✅ **Backend has zero knowledge of content**
+- Server facilitates transactions but cannot read records
+- No medical data stored in backend databases
+- Session keys only in memory, never persisted
+
+✅ **Access control is cryptographically enforced**
+- Access tokens use secure hash functions
+- Verification happens on-chain with immutable state
+- Time-based expiration cannot be bypassed
+
+✅ **Selective disclosure**
+- Share individual records, not entire history
+- Control exactly what each doctor sees
+- Revoke access instantly at any time
+
+### What You Must Ensure
+
+⚠️ **Secure private key management**
+- Store your private key in a password manager
+- Never share it with anyone
+- No recovery if lost - permanent data loss
+
+⚠️ **Trusted device and browser**
+- Use secure, malware-free devices
+- Keep browser and OS updated
+- Avoid browser extensions that could access memory
+
+⚠️ **QR code security**
+- Treat QR codes like passwords
+- Don't share screenshots publicly
+- Delete after doctor has scanned
+
+⚠️ **Verify doctor addresses**
+- Ensure you have the correct Aleo address
+- One character wrong = wrong recipient
+- No way to "undo" a grant to wrong address
+
+## Privacy vs. Transparency Trade-offs
+
+Salud balances privacy with necessary transparency:
+
+| Aspect | Private | Public | Reasoning |
+|--------|---------|--------|----------|
+| Medical content | ✅ | ❌ | Sensitive health information |
+| Record ownership | ✅ | ❌ | Who created record is private |
+| Access permissions | ❌ | ✅ | Enables doctor verification |
+| Access expiration | ❌ | ✅ | Time-based revocation needs visibility |
+| Revocation status | ❌ | ✅ | Doctors must check validity |
+| Transaction history | ❌ | ✅ | Blockchain immutability requirement |
+
+<Info>
+Public mappings enable **verifiable access control** without exposing **sensitive medical data**. This is the key innovation of Salud's privacy model.
+</Info>
+
+## Comparison: Traditional vs. Salud
+
+| Feature | Traditional EHR | Salud on Aleo |
+|---------|-----------------|---------------|
+| **Data storage** | Centralized hospital database | Decentralized blockchain |
+| **Encryption** | At-rest only | End-to-end + at-rest |
+| **Access control** | Hospital admin controls | You control via tokens |
+| **Data visibility** | Hospital staff can see | Zero-knowledge proofs |
+| **Sharing** | Fax or direct DB access | Cryptographic tokens |
+| **Revocation** | Manual request to hospital | Instant on-chain update |
+| **Audit trail** | Internal logs (modifiable) | Immutable blockchain |
+| **Data ownership** | Hospital owns | You own |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Security Overview" icon="shield" href="/security/overview">
+    Learn about Salud's overall security architecture
+  </Card>
+  
+  <Card title="Best Practices" icon="user-shield" href="/security/best-practices">
+    Security guidelines for protecting your health data
+  </Card>
+</CardGroup>

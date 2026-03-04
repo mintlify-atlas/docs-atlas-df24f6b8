@@ -1,0 +1,615 @@
+---
+title: 'Installation'
+description: 'Complete setup guide for Salud Health frontend and smart contract'
+icon: 'download'
+---
+
+This guide provides detailed installation and configuration instructions for setting up Salud Health, a privacy-preserving medical records management system built on Aleo blockchain.
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Node.js" icon="node-js">
+    **Version 18 or higher**
+    
+    Required for running the frontend and development tools.
+  </Card>
+  <Card title="Package Manager" icon="box">
+    **npm or yarn**
+    
+    For managing dependencies.
+  </Card>
+  <Card title="Browser" icon="window">
+    **Modern Browser**
+    
+    Chrome, Firefox, Safari, or Edge (latest versions)
+  </Card>
+  <Card title="Aleo Wallet" icon="wallet">
+    **Private Key**
+    
+    From Leo Wallet, Shield Wallet, or generated fresh
+  </Card>
+</CardGroup>
+
+## Project Structure
+
+Understanding the Salud Health project structure:
+
+```
+Salud/
+├── Main APP/                    # React frontend application
+│   ├── src/
+│   │   ├── components/         # React components
+│   │   │   ├── layout/        # Header, Sidebar, AppLayout
+│   │   │   ├── records/       # Record management components
+│   │   │   ├── doctor/        # Doctor-specific components
+│   │   │   └── ui/            # Reusable UI components
+│   │   ├── contexts/          # React context providers
+│   │   ├── pages/             # Route page components
+│   │   ├── hooks/             # Custom React hooks
+│   │   ├── store/             # Zustand state management
+│   │   └── lib/               # Utilities and API clients
+│   ├── package.json           # Frontend dependencies
+│   └── vite.config.ts         # Vite configuration
+├── Salud Health Contract/      # Aleo smart contract
+│   ├── src/main.leo           # Leo program source
+│   ├── build/                 # Compiled program
+│   └── program.json           # Program configuration
+├── deprecated_backend/         # Legacy backend (optional)
+│   └── server.js              # Node.js API server
+└── .env.example               # Environment configuration template
+```
+
+## Frontend Installation
+
+<Steps>
+  <Step title="Clone the Repository">
+    First, clone the Salud Health repository:
+
+    ```bash
+    git clone <repository-url>
+    cd Salud
+    ```
+  </Step>
+
+  <Step title="Navigate to Frontend Directory">
+    The frontend is located in the `Main APP` directory:
+
+    ```bash
+    cd "Main APP"
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    Install all required npm packages:
+
+    ```bash
+    npm install
+    ```
+
+    This will install key dependencies including:
+
+    ```json
+    {
+      "@provablehq/sdk": "^0.9.15",
+      "@provablehq/wasm": "^0.9.15",
+      "react": "^18.3.1",
+      "react-router-dom": "^7.13.0",
+      "zustand": "^5.0.10",
+      "framer-motion": "^12.29.0",
+      "lucide-react": "^0.563.0"
+    }
+    ```
+
+    <Note>
+      The `@provablehq/sdk` package provides the core functionality for interacting with the Aleo blockchain.
+    </Note>
+  </Step>
+
+  <Step title="Configure Environment Variables">
+    Create a `.env` file in the `Main APP` directory:
+
+    ```bash
+    cp ../.env.example .env
+    ```
+
+    Edit the `.env` file with your configuration:
+
+    ```env
+    # Aleo Network Configuration
+    ALEO_NETWORK=testnet
+    ALEO_ENDPOINT=https://api.explorer.provable.com/v1
+
+    # Program ID (deployed contract)
+    PROGRAM_ID=salud_health_records_v6.aleo
+
+    # Optional: Pre-fill wallet for testing (NEVER commit real keys)
+    ALEO_PRIVATE_KEY=
+    ALEO_VIEW_KEY=
+    ALEO_ADDRESS=
+    ```
+
+    <Warning>
+      **Never commit your `.env` file to version control.** The `.gitignore` is already configured to exclude it, but always double-check before pushing.
+    </Warning>
+  </Step>
+
+  <Step title="Start Development Server">
+    Launch the Vite development server:
+
+    ```bash
+    npm run dev
+    ```
+
+    You should see:
+
+    ```
+    VITE v7.2.4  ready in 234 ms
+
+    ➜  Local:   http://localhost:5173/
+    ➜  Network: use --host to expose
+    ```
+
+    Open your browser to `http://localhost:5173`
+  </Step>
+</Steps>
+
+## Aleo Wallet Setup
+
+Salud Health requires an Aleo private key for encrypting medical data. Here's a detailed explanation and setup guide:
+
+### Why Does Salud Require a Private Key?
+
+Unlike typical dApps that use browser wallet extensions, Salud requires direct access to your private key because:
+
+<Accordion title="End-to-End Encryption">
+  Your medical records are encrypted **client-side** using your private key before they leave your browser. This ensures:
+
+  - Data is encrypted before reaching any server
+  - Only you can decrypt your medical information
+  - Zero-knowledge: even the blockchain can't read your data
+  - HIPAA-grade privacy protection
+
+  Browser wallets (Leo, Shield, etc.) don't expose private keys for encryption operations, only for signing transactions.
+</Accordion>
+
+<Accordion title="Cryptographic Proof Generation">
+  When sharing records with doctors, Salud generates cryptographic access tokens using:
+
+  ```leo
+  let access_token: field = BHP256::hash_to_field(AccessTokenInput {
+      record_id: medical_record.record_id,
+      doctor: doctor,
+      patient: self.caller,
+      nonce: nonce,
+  });
+  ```
+
+  This requires direct cryptographic operations not available through standard wallet APIs.
+</Accordion>
+
+<Accordion title="Session-Based Record Management">
+  The application maintains a secure session with the Aleo network to:
+  - Fetch your encrypted records from the blockchain
+  - Monitor access grants and expirations
+  - Track record creation and sharing history
+
+  These operations require persistent access to cryptographic functions.
+</Accordion>
+
+### Getting Your Private Key
+
+<Tabs>
+  <Tab title="Leo Wallet">
+    **Export from Leo Wallet** (Recommended for existing users)
+
+    1. Install [Leo Wallet](https://leo.app/) browser extension if you haven't already
+    2. Create or access your existing account
+    3. Click your account avatar in the extension
+    4. Navigate to **Settings** → **Security & Privacy**
+    5. Click **"Export Private Key"**
+    6. Enter your wallet password to authenticate
+    7. Copy the private key (format: `APrivateKey1zkp...`)
+    8. Store it securely in a password manager
+
+    <Warning>
+      This is the same private key that controls your Aleo credits. Treat it like your bank password.
+    </Warning>
+  </Tab>
+
+  <Tab title="Shield Wallet">
+    **Export from Shield Wallet**
+
+    1. Install Shield Wallet browser extension
+    2. Access your account
+    3. Go to **Account Settings**
+    4. Select **"Export Private Key"**
+    5. Authenticate with your password
+    6. Copy the private key
+    7. Store it securely
+
+    You can use the same private key across both wallets and Salud.
+  </Tab>
+
+  <Tab title="Generate New">
+    **Generate Fresh Account** (Recommended for testing)
+
+    Open Salud and click **"Generate New"** on the wallet connect screen. The app will:
+
+    1. Create a new Aleo account using `@provablehq/sdk`
+    2. Display your private key, view key, and address
+    3. Automatically connect to the session
+
+    **Save these credentials:**
+    ```
+    Private Key: APrivateKey1zkp...
+    View Key:    AViewKey1...
+    Address:     aleo1...
+    ```
+
+    <Note>
+      You can later import this account into Leo Wallet or Shield Wallet using the same private key.
+    </Note>
+  </Tab>
+
+  <Tab title="Aleo SDK">
+    **Generate via Aleo SDK** (For developers)
+
+    If you're working with the Aleo SDK directly:
+
+    ```typescript
+    import { Account } from '@provablehq/sdk';
+
+    // Generate new account
+    const account = new Account();
+
+    console.log('Private Key:', account.privateKey().to_string());
+    console.log('View Key:', account.viewKey().to_string());
+    console.log('Address:', account.address().to_string());
+    ```
+
+    Or via command line:
+    ```bash
+    leo account new
+    ```
+  </Tab>
+</Tabs>
+
+### Private Key Security Best Practices
+
+<Steps>
+  <Step title="Use a Password Manager">
+    Store your private key in a secure password manager like:
+    - 1Password
+    - Bitwarden
+    - LastPass
+    - KeePass
+
+    **Never** store it in:
+    - Plain text files
+    - Email
+    - Cloud notes (Google Docs, Notion, etc.)
+    - Screenshots
+  </Step>
+
+  <Step title="Separate Testing and Production">
+    Use different accounts for:
+    - **Testing**: Fresh generated account with no real value
+    - **Production**: Your main Aleo wallet with actual credits
+
+    This limits exposure if test keys are compromised.
+  </Step>
+
+  <Step title="Enable Demo Mode for Development">
+    When developing or testing locally, use demo mode to avoid blockchain transactions:
+
+    ```env
+    DEMO_MODE=true
+    ```
+
+    In demo mode:
+    - All features work normally
+    - Records stored in localStorage
+    - No real blockchain transactions
+    - No credits required
+  </Step>
+</Steps>
+
+## Smart Contract Deployment (Optional)
+
+If you want to deploy your own instance of the Salud Health contract:
+
+<Steps>
+  <Step title="Install Leo CLI">
+    Install the Leo programming language toolchain:
+
+    ```bash
+    curl -L https://install.leo-lang.org | bash
+    leo update
+    ```
+
+    Verify installation:
+    ```bash
+    leo --version
+    ```
+  </Step>
+
+  <Step title="Navigate to Contract Directory">
+    ```bash
+    cd "Salud Health Contract"
+    ```
+  </Step>
+
+  <Step title="Build the Contract">
+    Compile the Leo program:
+
+    ```bash
+    leo build
+    ```
+
+    This creates compiled artifacts in the `build/` directory.
+  </Step>
+
+  <Step title="Deploy to Testnet">
+    Deploy the contract to Aleo testnet:
+
+    ```bash
+    leo deploy --network testnet
+    ```
+
+    You'll need:
+    - An Aleo private key with testnet credits
+    - Network connectivity to Aleo testnet
+
+    <Note>
+      Deployment costs testnet credits. Get free testnet credits from the [Aleo Faucet](https://faucet.aleo.org/).
+    </Note>
+  </Step>
+
+  <Step title="Update Frontend Configuration">
+    After deployment, update your frontend `.env` file with the new program ID:
+
+    ```env
+    PROGRAM_ID=your_program_name.aleo
+    ```
+  </Step>
+</Steps>
+
+## Backend Setup (Optional - Deprecated)
+
+The deprecated backend is optional and not required for core functionality:
+
+<Accordion title="Legacy Backend Installation">
+  If you need the backend for API-based operations:
+
+  ```bash
+  cd deprecated_backend
+  npm install
+  ```
+
+  Create `backend/.env`:
+  ```env
+  PORT=3001
+  ALEO_API_URL=https://api.explorer.provable.com/v1
+  PROGRAM_ID=salud_health_records_v6.aleo
+  DEMO_MODE=false
+  ```
+
+  Start the backend:
+  ```bash
+  npm start
+  ```
+
+  **Backend Dependencies:**
+  ```json
+  {
+    "express": "^4.18.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "@provablehq/sdk": "^0.9.15"
+  }
+  ```
+
+  <Warning>
+    The backend is deprecated. Current frontend connects directly to Aleo blockchain without requiring a backend server.
+  </Warning>
+</Accordion>
+
+## Production Build
+
+To build Salud Health for production deployment:
+
+<Steps>
+  <Step title="Build Frontend">
+    Create an optimized production build:
+
+    ```bash
+    cd "Main APP"
+    npm run build
+    ```
+
+    This creates a `dist/` directory with optimized static files.
+  </Step>
+
+  <Step title="Preview Production Build">
+    Test the production build locally:
+
+    ```bash
+    npm run preview
+    ```
+
+    This serves the `dist/` folder at `http://localhost:4173`
+  </Step>
+
+  <Step title="Deploy Static Files">
+    Deploy the `dist/` directory to your hosting provider:
+
+    **Vercel:**
+    ```bash
+    vercel deploy
+    ```
+
+    **Netlify:**
+    ```bash
+    netlify deploy --prod
+    ```
+
+    **AWS S3:**
+    ```bash
+    aws s3 sync dist/ s3://your-bucket-name
+    ```
+
+    <Note>
+      Salud Health is a static single-page application (SPA). Ensure your hosting provider is configured for SPA routing.
+    </Note>
+  </Step>
+</Steps>
+
+## Environment Variables Reference
+
+<ParamField path="ALEO_NETWORK" type="string" default="testnet">
+  Aleo network to connect to. Options: `testnet`, `mainnet`
+</ParamField>
+
+<ParamField path="ALEO_ENDPOINT" type="string" default="https://api.explorer.provable.com/v1">
+  Aleo API endpoint URL for blockchain queries
+</ParamField>
+
+<ParamField path="PROGRAM_ID" type="string" default="salud_health_records_v6.aleo">
+  Deployed smart contract program identifier
+</ParamField>
+
+<ParamField path="ALEO_PRIVATE_KEY" type="string" required={false}>
+  Optional: Pre-fill private key for testing (59 characters, starts with `APrivateKey1`)
+  
+  <Warning>Never commit this to version control</Warning>
+</ParamField>
+
+<ParamField path="ALEO_VIEW_KEY" type="string" required={false}>
+  Optional: View key for read-only blockchain queries
+</ParamField>
+
+<ParamField path="ALEO_ADDRESS" type="string" required={false}>
+  Optional: Wallet address (starts with `aleo1`)
+</ParamField>
+
+<ParamField path="DEMO_MODE" type="boolean" default="false">
+  Enable demo mode for testing without blockchain transactions
+</ParamField>
+
+## Verification
+
+Verify your installation is working correctly:
+
+<Steps>
+  <Step title="Frontend Loads">
+    ✅ Application loads at `http://localhost:5173`
+    
+    ✅ No console errors in browser DevTools
+  </Step>
+
+  <Step title="Wallet Connection">
+    ✅ Can paste or generate a private key
+    
+    ✅ Wallet connects successfully
+    
+    ✅ Address displays correctly (format: `aleo1...`)
+  </Step>
+
+  <Step title="Create Test Record">
+    ✅ Can open "New Record" modal
+    
+    ✅ Form accepts input
+    
+    ✅ Record creates successfully on testnet
+    
+    ✅ Record appears in dashboard after blockchain confirmation
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found errors">
+    Clear node_modules and reinstall:
+
+    ```bash
+    rm -rf node_modules package-lock.json
+    npm install
+    ```
+  </Accordion>
+
+  <Accordion title="Vite build fails">
+    Ensure you're using Node.js 18+:
+
+    ```bash
+    node --version
+    ```
+
+    Update if necessary:
+    ```bash
+    nvm install 18
+    nvm use 18
+    ```
+  </Accordion>
+
+  <Accordion title="Cannot connect to Aleo network">
+    Check network connectivity:
+
+    ```bash
+    curl https://api.explorer.provable.com/v1/testnet/latest/height
+    ```
+
+    If this fails, verify:
+    - Your internet connection
+    - Firewall settings
+    - VPN isn't blocking Aleo endpoints
+  </Accordion>
+
+  <Accordion title="Private key validation fails">
+    Ensure your private key:
+    - Starts with `APrivateKey1`
+    - Is exactly 59 characters
+    - Contains no spaces or line breaks
+    - Is from Aleo network (not Bitcoin, Ethereum, etc.)
+  </Accordion>
+
+  <Accordion title="TypeScript errors during build">
+    Run type checking:
+
+    ```bash
+    npm run build
+    ```
+
+    Fix any TypeScript errors reported. Common issues:
+    - Missing type definitions
+    - Incorrect import paths
+    - Version mismatches in `@types/*` packages
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first medical record in 5 minutes
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture/overview">
+    Understand how Salud integrates with Aleo
+  </Card>
+  <Card title="Smart Contract" icon="code" href="/contract/introduction">
+    Explore the Leo contract source code
+  </Card>
+  <Card title="User Guides" icon="book-open" href="/guides/patient-guide">
+    Patient and doctor usage guides
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+If you encounter issues:
+
+- Check the [troubleshooting guide](/help/troubleshooting)
+- Review the [FAQ](/help/faq)
+- Open an issue on [GitHub](https://github.com/SALUD-Healths/SALUD-MVP)
+- Join the [Aleo Discord](https://discord.gg/aleo)

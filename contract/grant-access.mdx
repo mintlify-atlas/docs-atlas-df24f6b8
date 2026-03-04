@@ -1,0 +1,378 @@
+---
+title: "grant_access"
+description: "Grant temporary access to a healthcare provider for a specific medical record"
+---
+
+## Overview
+
+The `grant_access` transition allows patients to securely share a specific medical record with a healthcare provider. It generates a cryptographic access token with automatic expiration based on block height. The access token can be encoded in a QR code for the doctor to scan and verify.
+
+## Function Signature
+
+```leo
+async transition grant_access(
+    medical_record: MedicalRecord,
+    doctor: address,
+    duration_blocks: u32,
+    nonce: field
+) -> (MedicalRecord, field, Future)
+```
+
+**Source**: [main.leo:262-303](https://github.com/SALUD-Healths/SALUD-MVP/blob/main/Salud%20Health%20Contract/src/main.leo#L262)
+
+## Parameters
+
+<ParamField path="medical_record" type="MedicalRecord" required>
+  The private medical record to share. Must be owned by the caller (enforced by Aleo's record ownership system). This record is returned unchanged after granting access.
+</ParamField>
+
+<ParamField path="doctor" type="address" required>
+  The Aleo address of the healthcare provider receiving access. Cannot be the same as the patient's address (self-grant prevention).
+</ParamField>
+
+<ParamField path="duration_blocks" type="u32" required>
+  How long the access should last, measured in blocks. The function automatically clamps this value to safe bounds:
+  - Minimum: 240 blocks (~1 hour)
+  - Maximum: 40,320 blocks (~7 days)
+  - Default recommendation: 5,760 blocks (~24 hours)
+  
+  Aleo produces ~1 block per 15 seconds = 4 blocks/minute.
+</ParamField>
+
+<ParamField path="nonce" type="field" required>
+  Client-provided random nonce for unique access token generation. Ensures the token is cryptographically unpredictable and unique even for repeated grants to the same doctor.
+</ParamField>
+
+## Returns
+
+<ResponseField name="MedicalRecord" type="record">
+  The original medical record returned to the patient, unchanged. The patient retains full ownership and can grant access to multiple doctors.
+</ResponseField>
+
+<ResponseField name="access_token" type="field">
+  Cryptographically generated access token (BHP256 hash of record_id + doctor + patient + nonce). This token should be encoded in a QR code and shared with the doctor. The doctor uses this token to verify their access.
+</ResponseField>
+
+<ResponseField name="Future" type="Future">
+  Async finalization that:
+  - Calculates expiration block height (`block.height + duration_blocks`)
+  - Creates an `AccessGrant` struct with all permission details
+  - Stores the grant in `access_grants` mapping (access_token → AccessGrant)
+  - Marks the token as valid in `access_token_valid` mapping
+</ResponseField>
+
+## Validation Rules
+
+### Self-Grant Prevention
+```leo
+assert_neq(self.caller, doctor);
+```
+Patients cannot grant access to themselves. The transaction fails if the doctor address equals the caller's address.
+
+### Duration Clamping
+```leo
+let clamped_min: u32 = duration_blocks < MIN_ACCESS_DURATION_BLOCKS 
+    ? MIN_ACCESS_DURATION_BLOCKS 
+    : duration_blocks;
+let safe_duration: u32 = clamped_min > MAX_ACCESS_DURATION_BLOCKS 
+    ? MAX_ACCESS_DURATION_BLOCKS 
+    : clamped_min;
+```
+
+The function automatically adjusts invalid durations:
+- If `duration_blocks < 240`, it's increased to 240 (minimum 1 hour)
+- If `duration_blocks > 40320`, it's reduced to 40320 (maximum 7 days)
+
+### Record Ownership
+The caller must own the `medical_record`. This is enforced automatically by Aleo's record system - if you don't own the record, you can't pass it to the function.
+
+### Access Token Generation
+```leo
+let access_token: field = BHP256::hash_to_field(AccessTokenInput {
+    record_id: medical_record.record_id,
+    doctor: doctor,
+    patient: self.caller,
+    nonce: nonce,
+});
+```
+
+The access token is a cryptographic hash preventing:
+- Token prediction (requires knowing the nonce)
+- Token reuse across different grants (each nonce creates unique token)
+- Unauthorized access (binds to specific doctor + record + patient)
+
+## Code Example
+
+```typescript
+import { AleoClient } from '@aleo/sdk';
+import QRCode from 'qrcode';
+
+// Initialize Aleo client
+const client = new AleoClient();
+
+// Assuming you have a medical record from create_record
+const medicalRecord = await getPatientRecord('record_xyz');
+
+// Doctor's Aleo address (scanned from their badge or entered manually)
+const doctorAddress = 'aleo1doctor...';
+
+// Grant access for 24 hours (5760 blocks)
+const durationBlocks = 5760;
+
+// Generate secure random nonce
+const nonce = generateSecureRandom();
+
+try {
+  const result = await client.execute(
+    'salud_health_records_v6.aleo',
+    'grant_access',
+    [
+      medicalRecord,    // The record to share
+      doctorAddress,    // Doctor's address
+      durationBlocks,   // 5760 blocks (~24 hours)
+      nonce             // Unique random nonce
+    ]
+  );
+
+  const accessToken = result.outputs[1]; // Second return value
+  const returnedRecord = result.outputs[0]; // First return value
+
+  console.log('Access granted!');
+  console.log('Access token:', accessToken);
+
+  // Generate QR code for doctor to scan
+  const qrData = {
+    token: accessToken,
+    recordId: medicalRecord.record_id,
+    patient: client.address,
+    expiresInBlocks: durationBlocks
+  };
+
+  const qrCodeUrl = await QRCode.toDataURL(JSON.stringify(qrData));
+  
+  // Display QR code to patient
+  displayQRCode(qrCodeUrl);
+
+  // Notify doctor (optional, via secure channel)
+  await notifyDoctor(doctorAddress, {
+    patientName: "John Doe",
+    recordType: "Laboratory Results",
+    expiresAt: calculateExpirationTime(durationBlocks)
+  });
+
+} catch (error) {
+  if (error.message.includes('assert_neq')) {
+    console.error('Cannot grant access to yourself');
+  } else {
+    console.error('Failed to grant access:', error);
+  }
+}
+```
+
+## Duration Examples
+
+```typescript
+// Quick consultation: 1 hour (240 blocks minimum)
+const quickVisit = 240;
+
+// Standard appointment: 24 hours (recommended)
+const standardAccess = 5760;
+
+// Extended care: 3 days
+const extendedCare = 17280;
+
+// Maximum allowed: 7 days
+const maxAccess = 40320;
+
+// Too short: Will be clamped to 240
+const tooShort = 100; // → becomes 240
+
+// Too long: Will be clamped to 40320
+const tooLong = 100000; // → becomes 40320
+```
+
+## Block Time Calculations
+
+```typescript
+// Convert time to blocks (assuming 15 seconds per block)
+function timeToBlocks(hours: number): number {
+  const blocksPerHour = 240; // 60 min * 4 blocks/min
+  return hours * blocksPerHour;
+}
+
+// Examples:
+timeToBlocks(1)  // 240 blocks   = 1 hour
+timeToBlocks(6)  // 1440 blocks  = 6 hours
+timeToBlocks(24) // 5760 blocks  = 24 hours
+timeToBlocks(72) // 17280 blocks = 3 days
+timeToBlocks(168) // 40320 blocks = 7 days
+
+// Get approximate expiration time
+function getExpirationTime(durationBlocks: number): Date {
+  const secondsPerBlock = 15;
+  const now = new Date();
+  return new Date(now.getTime() + (durationBlocks * secondsPerBlock * 1000));
+}
+```
+
+## Client-Side Pre-computation
+
+You can compute the access token before calling `grant_access` using the `compute_access_token` helper:
+
+```typescript
+// Pre-compute the access token
+const predictedToken = await client.execute(
+  'salud_health_records_v6.aleo',
+  'compute_access_token',
+  [
+    recordId,
+    doctorAddress,
+    patientAddress,
+    nonce
+  ]
+);
+
+console.log('Token will be:', predictedToken);
+
+// Generate QR code before actual transaction
+const qrCode = await generateQRCode(predictedToken);
+
+// Now execute the actual grant
+const result = await client.execute(
+  'salud_health_records_v6.aleo',
+  'grant_access',
+  [record, doctorAddress, duration, nonce] // Same nonce!
+);
+
+// result.outputs[1] === predictedToken
+```
+
+## On-Chain State Changes
+
+### AccessGrant Creation
+The finalize function creates and stores the access grant:
+
+```leo
+let expires_at: u32 = block.height + duration_blocks;
+
+let grant: AccessGrant = AccessGrant {
+    patient: patient,
+    doctor: doctor,
+    record_id: record_id,
+    access_token: access_token,
+    granted_at: block.height,
+    expires_at: expires_at,
+    is_revoked: false,
+};
+
+access_grants.set(access_token, grant);
+access_token_valid.set(access_token, true);
+```
+
+This creates two mapping entries:
+1. **Full grant details** in `access_grants` for verification
+2. **Quick validity flag** in `access_token_valid` for cheap checks
+
+## Error Cases
+
+<Warning>
+  **Self-Grant Attempt**: Transaction fails if patient tries to grant access to themselves
+  
+  ```
+  Error: Assertion failed: assert_neq(self.caller, doctor)
+  ```
+</Warning>
+
+<Warning>
+  **Invalid Record Ownership**: Transaction fails if caller doesn't own the medical record
+  
+  ```
+  Error: Record ownership violation
+  ```
+</Warning>
+
+<Warning>
+  **Duplicate Access Grant**: Creating multiple grants to the same doctor with different nonces will create separate access tokens. Each token is independent and can be revoked separately.
+</Warning>
+
+## Security Considerations
+
+### Token Uniqueness
+Each access grant generates a unique token, even for the same patient-doctor-record combination, because of the nonce. This means:
+- You can grant access multiple times to the same doctor
+- Each grant has independent expiration
+- Revoking one token doesn't affect others
+
+### Privacy Guarantees
+- **Medical data remains private**: Only the access grant metadata is public, not the actual medical record
+- **Doctor verification required**: The token alone isn't enough - doctor must prove their address matches
+- **Automatic expiration**: Access automatically becomes invalid after the expiration block height
+
+### Attack Prevention
+- **No token prediction**: Requires knowing the secret nonce
+- **No replay attacks**: Each token is unique and single-use in practice
+- **No unauthorized doctors**: Token binds to specific doctor address
+- **No stale access**: Block height expiration enforced on-chain
+
+## QR Code Integration
+
+```typescript
+import QRCode from 'qrcode';
+
+// Recommended QR code data structure
+interface AccessQRData {
+  version: string;           // Protocol version (e.g., "1.0")
+  network: string;           // "testnet" or "mainnet"
+  token: string;             // The access token
+  recordId: string;          // Record identifier
+  patient: string;           // Patient address
+  recordType: number;        // Type of medical record (1-10)
+  grantedAt: number;         // Block height when granted
+  expiresAt: number;         // Block height when expires
+  estimatedExpiry: string;   // Human-readable time
+}
+
+async function generateAccessQR(
+  accessToken: string,
+  record: MedicalRecord,
+  durationBlocks: number
+): Promise<string> {
+  const currentBlock = await client.getBlockHeight();
+  
+  const qrData: AccessQRData = {
+    version: "1.0",
+    network: "testnet",
+    token: accessToken,
+    recordId: record.record_id,
+    patient: record.owner,
+    recordType: record.record_type,
+    grantedAt: currentBlock,
+    expiresAt: currentBlock + durationBlocks,
+    estimatedExpiry: getExpirationTime(durationBlocks).toISOString()
+  };
+
+  // Generate QR code with error correction
+  return await QRCode.toDataURL(JSON.stringify(qrData), {
+    errorCorrectionLevel: 'H',
+    width: 300,
+    margin: 2
+  });
+}
+```
+
+## Best Practices
+
+1. **Use appropriate durations**: 24 hours (5760 blocks) for most cases, shorter for quick consultations
+2. **Generate unique nonces**: Always use cryptographically secure random values
+3. **QR code delivery**: Display QR code on patient's device for in-person scanning
+4. **Track active grants**: Maintain a client-side list of active access grants for easy revocation
+5. **Notify doctors**: Send secure notifications when access is granted (optional)
+6. **Implement revocation UI**: Make it easy for patients to revoke access if needed
+7. **Test expiration**: Ensure your app handles expired tokens gracefully
+
+## Related Functions
+
+- [create_record](/contract/create-record) - Create a record before granting access
+- [verify_access](/contract/verify-access) - Doctor verifies the access token
+- [revoke_access](/contract/revoke-access) - Patient revokes access before expiration
+- [AccessGrant Structure](/contract/access-grant) - Understanding access grants

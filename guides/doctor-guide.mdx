@@ -1,0 +1,431 @@
+---
+title: Doctor Guide
+description: Complete guide for healthcare providers to access patient records securely using Salud Health
+icon: user-doctor
+---
+
+## Overview
+
+As a healthcare provider, Salud Health enables you to access patient medical records securely and privately. Patients share records with you by generating time-limited QR codes that you can scan to view encrypted health information stored on the Aleo blockchain.
+
+## Getting Started
+
+### Connecting Your Wallet
+
+To verify access and decrypt patient records, you need to connect your Aleo wallet:
+
+<Steps>
+  <Step title="Navigate to Salud Health">
+    Open the Salud Health application and go to the Doctor Portal.
+  </Step>
+  
+  <Step title="Connect Your Wallet">
+    Enter your Aleo private key (starts with `APrivateKey1...`) to establish a secure session.
+    
+    <Note>
+      Your private key is used to decrypt records shared specifically with your wallet address. It never leaves your browser.
+    </Note>
+  </Step>
+  
+  <Step title="Access Doctor Portal">
+    Once connected, you can access the QR scanner and view shared patient records.
+  </Step>
+</Steps>
+
+## Accessing Patient Records
+
+Salud Health uses a QR code-based system for secure, time-limited access to patient medical records.
+
+### The QR Code Workflow
+
+<Steps>
+  <Step title="Patient Generates QR Code">
+    The patient selects a medical record in their Salud Health app and generates a temporary access QR code. They configure:
+    - Access duration (1 hour to 7 days)
+    - Optional restriction to your specific wallet address
+  </Step>
+  
+  <Step title="Patient Shares QR Code">
+    The patient displays the QR code on their phone or prints it for you to scan during the appointment.
+  </Step>
+  
+  <Step title="You Scan the Code">
+    Use the Doctor Portal's QR scanner to scan the patient's QR code.
+  </Step>
+  
+  <Step title="Blockchain Verification">
+    The Aleo blockchain verifies:
+    - The access token is valid
+    - The access hasn't expired
+    - You have permission to view the record (if address-restricted)
+  </Step>
+  
+  <Step title="View Decrypted Record">
+    Once verified, the encrypted medical record is decrypted and displayed securely in your browser.
+  </Step>
+</Steps>
+
+## Using the QR Code Scanner
+
+### Starting a Scan Session
+
+<Steps>
+  <Step title="Navigate to Doctor Portal">
+    Click "Doctor" in the main navigation menu.
+  </Step>
+  
+  <Step title="Grant Camera Permissions">
+    When you click "Start Scanning", your browser will request camera permissions. Click "Allow" to enable the QR scanner.
+    
+    <Warning>
+      If you deny camera access, you won't be able to scan QR codes. Check your browser settings to enable camera permissions for Salud Health.
+    </Warning>
+  </Step>
+  
+  <Step title="Position the QR Code">
+    Hold the patient's phone or printed QR code in front of your camera. Center it within the scanning frame (250x250 pixels).
+  </Step>
+  
+  <Step title="Wait for Detection">
+    The scanner runs at 10 frames per second and will automatically detect and process the QR code.
+  </Step>
+</Steps>
+
+### Understanding Scan Results
+
+After scanning, you'll see one of these outcomes:
+
+<Accordion title="Success - Access Verified">
+  **What you'll see:**
+  - Green success banner: "Access Verified Successfully"
+  - Patient's medical record with decrypted data
+  - Record details: title, type, description
+  - Patient's wallet address
+  - Access expiration time
+  - Access token identifier
+  
+  **What this means:**
+  The Aleo blockchain confirmed you have valid access to this record. The patient granted you permission, and the access hasn't expired.
+</Accordion>
+
+<Accordion title="Error - Invalid QR Code">
+  **Common reasons:**
+  - The QR code is not from Salud Health
+  - The QR code format is corrupted or incomplete
+  - The code doesn't contain required fields (accessToken, recordId, patientAddress)
+  
+  **Solution:**
+  Ask the patient to generate a new QR code from their Salud Health app.
+</Accordion>
+
+<Accordion title="Error - Access Expired">
+  **What happened:**
+  The access token's time limit has passed. Access durations range from 1 hour to 7 days.
+  
+  **Solution:**
+  Request that the patient generate a fresh QR code with a new access duration.
+</Accordion>
+
+<Accordion title="Error - Wallet Not Connected">
+  **What happened:**
+  You attempted to scan without connecting your Aleo wallet first.
+  
+  **Solution:**
+  Connect your wallet using your Aleo private key before scanning QR codes.
+</Accordion>
+
+<Accordion title="Error - Address Restriction">
+  **What happened:**
+  The patient restricted access to a specific doctor's wallet address, and your address doesn't match.
+  
+  **Solution:**
+  Confirm with the patient that they generated the QR code for your specific Aleo wallet address.
+</Accordion>
+
+## Viewing Patient Records
+
+### Record Information Display
+
+When you successfully scan a QR code, you'll see:
+
+**Record Header**
+- **Title**: The patient's description of the medical event
+- **Record Type Badge**: Category (General Health, Lab Results, Prescription, etc.)
+- **Type Icon**: Visual identifier for the record category
+
+**Medical Data**
+- **Description**: Detailed information about the medical event, test results, or prescription
+- **Encrypted Data**: The actual medical record content, decrypted using the shared view key
+
+**Access Information**
+- **Patient Address**: The patient's Aleo wallet identifier (e.g., `aleo1abc...xyz`)
+- **Access Expires**: Countdown timer showing when access will terminate
+- **Access Token**: Unique identifier for this access grant
+
+**Security Notice**
+- Confirmation that the record was securely shared via Aleo blockchain
+- Reminder that access will automatically expire
+
+### Record Types You May Encounter
+
+Patients can create records in 10 different categories:
+
+<CardGroup cols={2}>
+  <Card title="General Health" icon="heart">
+    Routine checkups, health assessments, vital signs, and preventive care visits.
+  </Card>
+  
+  <Card title="Laboratory Results" icon="flask">
+    Blood tests, urine analysis, genetic testing, and other lab work with results and reference ranges.
+  </Card>
+  
+  <Card title="Prescription" icon="pills">
+    Medication prescriptions including drug names, dosages, frequency, and treatment duration.
+  </Card>
+  
+  <Card title="Imaging" icon="x-ray">
+    X-rays, MRI scans, CT scans, ultrasounds, and radiology reports.
+  </Card>
+  
+  <Card title="Vaccination" icon="syringe">
+    Immunization records, vaccine dates, lot numbers, and vaccination history.
+  </Card>
+  
+  <Card title="Surgical" icon="scissors">
+    Surgery records, operative notes, and post-operative care instructions.
+  </Card>
+  
+  <Card title="Mental Health" icon="brain">
+    Psychological assessments, therapy session notes, and mental health evaluations.
+  </Card>
+  
+  <Card title="Dental" icon="tooth">
+    Dental examinations, treatments, X-rays, and oral health records.
+  </Card>
+  
+  <Card title="Vision" icon="eye">
+    Eye exams, vision prescriptions, and ophthalmology records.
+  </Card>
+  
+  <Card title="Other" icon="file-text">
+    Any other medical records that don't fit the above categories.
+  </Card>
+</CardGroup>
+
+## Understanding Access Permissions
+
+### Time-Limited Access
+
+All patient record sharing in Salud Health is temporary:
+
+| Duration | Blocks | Use Case |
+|----------|--------|----------|
+| 1 Hour | 240 | Quick consultation or emergency access |
+| 4 Hours | 960 | Extended appointment or procedure |
+| 12 Hours | 2,880 | Half-day access for monitoring |
+| 24 Hours | 5,760 | Full day access for inpatient care |
+| 3 Days | 17,280 | Multi-day hospital stay |
+| 7 Days | 40,320 | Extended care period (maximum) |
+
+<Note>
+  **Aleo Blockchain Timing**
+  
+  Durations are measured in Aleo blocks, where each block is approximately 15 seconds. The system automatically calculates expiration times.
+</Note>
+
+### Address-Restricted vs Open Access
+
+Patients can share records in two ways:
+
+<Accordion title="Open Access (No Address Restriction)">
+  **How it works:**
+  - Patient generates QR code without specifying a doctor's address
+  - Any doctor who scans the QR code can access the record
+  - Useful for walk-in clinics or emergency situations
+  
+  **Security consideration:**
+  - Access is only protected by possession of the QR code
+  - Relies on patient sharing the code responsibly
+</Accordion>
+
+<Accordion title="Address-Restricted Access">
+  **How it works:**
+  - Patient enters your specific Aleo wallet address when generating the QR code
+  - Only you can access the record, even if someone else scans the QR code
+  - Provides maximum security for sensitive records
+  
+  **Requirements:**
+  - You must provide your Aleo wallet address to the patient beforehand
+  - You must be connected with that specific wallet when scanning
+</Accordion>
+
+## Data Privacy & Security
+
+### How Records Are Protected
+
+Salud Health implements HIPAA-grade encryption:
+
+<Accordion title="End-to-End Encryption">
+  Medical records are encrypted in the patient's browser before reaching the blockchain. The data is never transmitted or stored in plaintext.
+</Accordion>
+
+<Accordion title="Private Blockchain Storage">
+  Records exist as private, encrypted entries on the Aleo blockchain. Only authorized users with the correct cryptographic keys can decrypt them.
+</Accordion>
+
+<Accordion title="Zero-Knowledge Proofs">
+  Access verification happens using zero-knowledge proofs, meaning the blockchain can confirm permissions without exposing sensitive data.
+</Accordion>
+
+<Accordion title="Encrypted View Keys">
+  When patients share records, the view key is encrypted with your public key (derived from your wallet address). Only your private key can decrypt it.
+</Accordion>
+
+<Accordion title="Automatic Expiration">
+  Access tokens have built-in expiration. Once the time limit passes, the blockchain automatically invalidates the access grant.
+</Accordion>
+
+### Your Responsibilities
+
+<Warning>
+  **HIPAA Compliance**
+  
+  While Salud Health provides technical security, you are responsible for:
+  - Using accessed records in compliance with HIPAA and local regulations
+  - Not sharing, copying, or redistributing patient data without consent
+  - Securing your Aleo private key (acts as your credentials)
+  - Using records only for the authorized medical purpose
+</Warning>
+
+<Note>
+  **No Persistent Storage**
+  
+  Accessed records are displayed in your browser but not permanently stored by Salud Health. Once you close the view, the data is removed from memory.
+</Note>
+
+## Best Practices
+
+### During Patient Appointments
+
+1. **Verify Patient Identity**: Confirm the patient's identity before scanning their QR code
+2. **Use In-Person Sharing**: Request that patients display QR codes in person rather than sending them via insecure channels
+3. **Check Expiration Time**: Note when access expires and request an extension if needed
+4. **Document Viewing**: Record in your practice management system that you accessed the patient's Salud Health record
+
+### Security Practices
+
+1. **Protect Your Private Key**: Store your Aleo private key securely (password manager, hardware wallet)
+2. **Use Dedicated Device**: Consider using a dedicated device or browser profile for accessing patient records
+3. **Lock Your Workstation**: Always lock your computer when stepping away during active access sessions
+4. **Clear Browser Data**: Periodically clear browser cache and session data
+5. **Verify QR Source**: Only scan QR codes directly from the patient's device or printed materials
+
+### Patient Communication
+
+1. **Explain the Process**: Help patients understand how QR code sharing works
+2. **Request Adequate Duration**: Ask patients to grant sufficient access time for your appointment
+3. **Provide Your Address**: If handling sensitive records, give patients your Aleo wallet address for address-restricted sharing
+4. **Respect Privacy**: Only request access to records relevant to the current treatment
+
+## Troubleshooting
+
+<Accordion title="Camera won't activate">
+  **Possible causes:**
+  - Browser didn't receive camera permissions
+  - Another application is using the camera
+  - Camera is disabled in browser settings
+  
+  **Solutions:**
+  - Check browser permissions: Settings → Privacy → Camera
+  - Close other apps using the camera (Zoom, Teams, etc.)
+  - Try a different browser (Chrome, Firefox, Safari)
+  - Ensure you're using HTTPS (required for camera access)
+</Accordion>
+
+<Accordion title="QR code won't scan">
+  **Possible causes:**
+  - QR code is blurry or damaged
+  - Lighting is too bright or too dark
+  - Code is not fully visible in the scanner frame
+  
+  **Solutions:**
+  - Increase screen brightness on patient's phone
+  - Ensure good lighting conditions
+  - Hold the QR code steady within the 250x250px frame
+  - Request that patient regenerate the QR code
+  - Try downloading and opening the QR code image for better quality
+</Accordion>
+
+<Accordion title="'Access Expired' error immediately">
+  **Possible causes:**
+  - The QR code was generated with very short duration (1 hour)
+  - Patient generated the code earlier and it already expired
+  - Clock synchronization issue between devices
+  
+  **Solutions:**
+  - Ask patient to generate a fresh QR code
+  - Request longer access duration (4-24 hours)
+  - Verify your device's clock is accurate
+</Accordion>
+
+<Accordion title="Verification fails despite valid QR code">
+  **Possible causes:**
+  - Your wallet address doesn't match the address-restricted access
+  - You're not connected to your wallet
+  - Network connectivity issues
+  
+  **Solutions:**
+  - Verify you're connected with the correct wallet
+  - Ask patient if they restricted access to a specific address
+  - Check internet connection for blockchain communication
+  - Try refreshing the page and reconnecting
+</Accordion>
+
+<Accordion title="Decrypted data appears garbled">
+  **Possible causes:**
+  - View key encryption issue
+  - Record was created with different encryption method
+  - Data corruption during blockchain storage
+  
+  **Solutions:**
+  - Ask patient to verify the record displays correctly on their end
+  - Request that patient share a different record to test
+  - Report the issue to Salud Health support with record ID
+</Accordion>
+
+## Frequently Asked Questions
+
+<Accordion title="Can I access records without the patient present?">
+  Technically, yes - if you have a valid, non-expired QR code or access token. However, this should only be done with explicit patient consent and for authorized medical purposes in compliance with HIPAA.
+</Accordion>
+
+<Accordion title="How long does my access last?">
+  Access duration is set by the patient when they generate the QR code, ranging from 1 hour to 7 days (maximum). You'll see a countdown timer showing exactly when access expires.
+</Accordion>
+
+<Accordion title="Can I save or export patient records?">
+  Salud Health displays records temporarily in your browser but doesn't provide export functionality. You should document relevant information in your practice management system.
+</Accordion>
+
+<Accordion title="What if I need continued access after expiration?">
+  Request that the patient generate a new QR code with a fresh access duration. Patients can create multiple access grants for the same record.
+</Accordion>
+
+<Accordion title="Can patients revoke my access early?">
+  Yes. Patients can revoke access at any time from their Shared Access page. Revocation is immediate and cannot be undone.
+</Accordion>
+
+<Accordion title="Do I need a separate wallet for each clinic location?">
+  No. You can use the same Aleo wallet across multiple devices and locations. Just ensure your private key is stored securely.
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Patient Guide" icon="user" href="/guides/patient-guide">
+    Understand how patients create and share records
+  </Card>
+  <Card title="Wallet Setup" icon="wallet" href="/guides/wallet-setup">
+    Set up your Aleo wallet for doctor access
+  </Card>
+</CardGroup>

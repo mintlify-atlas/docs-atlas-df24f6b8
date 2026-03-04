@@ -1,0 +1,216 @@
+---
+title: 'Introduction'
+description: 'Overview of the Salud Health Records smart contract on Aleo blockchain'
+---
+
+## What is Salud Health Records?
+
+Salud Health Records is a privacy-preserving medical records management system built on the Aleo blockchain using the Leo programming language. It enables patients to:
+
+- Store encrypted medical records as private records on-chain
+- Grant temporary access to healthcare providers via secure tokens
+- Revoke access automatically after expiration (block height based)
+- Maintain full control over their health data
+
+## Key Features
+
+### Privacy by Design
+
+The smart contract leverages Aleo's zero-knowledge architecture to ensure:
+
+- **Private Medical Records**: Health data is stored in private records, only visible to the owner
+- **Public Access Verification**: Access grants are stored in public mappings for transparent verification
+- **Cryptographic Access Tokens**: Tokens are generated using secure hash functions to prevent prediction
+- **Automatic Expiration**: Access automatically expires based on block height, no manual cleanup required
+
+### Security Model
+
+<CodeGroup>
+```leo Program Declaration
+program salud_health_records_v6.aleo {
+    // @admin allows upgrades during testnet development
+    // Change to @noupgrade before mainnet deployment
+    @admin(address = "aleo1gl4a57rcxyjvmzcgjscjqe466ecdr7uk4gdp7sf5pctu6tjvv5qs60lw8y")
+    async constructor() {}
+    
+    // ... rest of program
+}
+```
+</CodeGroup>
+
+The contract implements multiple layers of security:
+
+| Security Layer | Implementation | Purpose |
+|----------------|----------------|----------|
+| Private Records | Aleo record type | Only patient can view encrypted health data |
+| Access Verification | Public mappings | Doctors verify their access permissions |
+| Token Generation | BHP256 hash + nonce | Unpredictable, unique access tokens |
+| Expiration Enforcement | Block height comparison | Automatic, immutable access timeouts |
+
+## Program Constants
+
+The contract defines three critical constants for access duration management:
+
+<CodeGroup>
+```leo Access Duration Constants
+// Default access duration: ~24 hours worth of blocks
+// Aleo produces ~1 block per 15 seconds = 4 blocks/minute = 5760 blocks/day
+const DEFAULT_ACCESS_DURATION_BLOCKS: u32 = 5760u32;
+
+// Maximum access duration: ~7 days (for extended care scenarios)
+const MAX_ACCESS_DURATION_BLOCKS: u32 = 40320u32;
+
+// Minimum access duration: ~1 hour (for quick consultations)
+const MIN_ACCESS_DURATION_BLOCKS: u32 = 240u32;
+```
+</CodeGroup>
+
+### Block Time Calculations
+
+Aleo blockchain produces approximately **1 block every 15 seconds**, which translates to:
+
+- **4 blocks per minute**
+- **240 blocks per hour**
+- **5,760 blocks per day**
+- **40,320 blocks per week**
+
+These constants ensure access grants are bounded within reasonable timeframes for medical consultations and treatment periods.
+
+## Core Workflow
+
+The typical user journey follows three main steps:
+
+<Steps>
+  <Step title="Create Record">
+    Patient encrypts medical data client-side and stores it as a private record on-chain.
+    
+    ```typescript
+    const record = await createMedicalRecord({
+      encryptedData: chunks,
+      recordType: 2, // Lab results
+      dataHash: hash,
+      nonce: randomNonce,
+      makeDiscoverable: true
+    });
+    ```
+  </Step>
+  
+  <Step title="Grant Access">
+    Patient grants temporary access to a healthcare provider by generating an access token.
+    
+    ```typescript
+    const accessToken = await grantAccess({
+      medicalRecord: record,
+      doctorAddress: "aleo1...",
+      durationBlocks: 5760, // 24 hours
+      nonce: randomNonce
+    });
+    ```
+  </Step>
+  
+  <Step title="Verify Access">
+    Doctor scans QR code containing access token and verifies access on-chain.
+    
+    ```typescript
+    const isValid = await verifyAccess({
+      accessToken: token,
+      doctorAddress: myAddress,
+      recordId: recordId
+    });
+    ```
+  </Step>
+</Steps>
+
+## Data Privacy Guarantees
+
+<CardGroup cols={2}>
+  <Card title="Medical Data" icon="lock">
+    Stored in **private records** - only the patient can decrypt and read the contents. Not visible to validators or other network participants.
+  </Card>
+  
+  <Card title="Access Grants" icon="key">
+    Stored in **public mappings** - anyone can verify if a doctor has valid access, but the actual medical data remains private.
+  </Card>
+  
+  <Card title="Access Tokens" icon="qrcode">
+    Cryptographically generated using **BHP256** hash function with patient-provided nonces to prevent prediction attacks.
+  </Card>
+  
+  <Card title="Expiration" icon="clock">
+    Enforced via **block height** comparison - mathematically guaranteed expiration without requiring off-chain systems.
+  </Card>
+</CardGroup>
+
+## Record Types
+
+The contract supports 10 different categories of medical records:
+
+<CodeGroup>
+```leo Record Type Validation
+async transition create_record(
+    // ... parameters ...
+    record_type: u8,
+    // ... more parameters ...
+) -> (MedicalRecord, Future) {
+    // Validate record_type is within acceptable range (1-10)
+    assert(record_type >= 1u8 && record_type <= 10u8);
+    
+    // ... rest of function
+}
+```
+</CodeGroup>
+
+| Type | Category | Use Case |
+|------|----------|----------|
+| 1 | General Health | Routine checkups, physical exams |
+| 2 | Laboratory Results | Blood tests, urinalysis, biopsies |
+| 3 | Prescriptions | Medication records, dosage info |
+| 4 | Imaging/Radiology | X-rays, MRIs, CT scans |
+| 5 | Vaccination Records | Immunization history |
+| 6 | Surgical Records | Operation notes, procedures |
+| 7 | Mental Health | Therapy notes, assessments |
+| 8 | Dental Records | Dental exams, treatments |
+| 9 | Vision/Ophthalmology | Eye exams, prescriptions |
+| 10 | Other/Miscellaneous | Uncategorized records |
+
+## Why Leo on Aleo?
+
+The choice of Leo language and Aleo blockchain provides unique advantages for healthcare:
+
+<AccordionGroup>
+  <Accordion title="Native Privacy">
+    Aleo's zero-knowledge architecture means private records are truly private - not just encrypted, but invisible to all network participants except the owner.
+  </Accordion>
+  
+  <Accordion title="Predictable Costs">
+    On-chain execution costs are deterministic and predictable, making it feasible for healthcare organizations to budget for blockchain operations.
+  </Accordion>
+  
+  <Accordion title="Type Safety">
+    Leo's strongly-typed system prevents many common smart contract vulnerabilities at compile time, critical for medical applications.
+  </Accordion>
+  
+  <Accordion title="Provable Computation">
+    All access verifications are cryptographically provable, providing an immutable audit trail for compliance purposes.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="./architecture">
+    Dive deep into the smart contract architecture, data structures, and state management
+  </Card>
+  
+  <Card title="Functions" icon="code" href="./functions">
+    Explore all available transitions and their parameters
+  </Card>
+  
+  <Card title="Integration" icon="plug" href="./integration">
+    Learn how to integrate the contract with your frontend application
+  </Card>
+  
+  <Card title="Testing" icon="flask" href="./testing">
+    Run tests and deploy your own instance
+  </Card>
+</CardGroup>
